@@ -1,2 +1,5 @@
-# Ignore all the files of the virtual environment
+# Files of the virtual environment
 vnv/
+
+# Matlab files used for testings
+*.m
