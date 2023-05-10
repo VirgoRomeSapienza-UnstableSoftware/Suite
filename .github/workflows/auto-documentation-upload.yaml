@@ -17,7 +17,7 @@ jobs:
           python -m pip install --upgrade sphinx sphinx-rtd-theme
 
       - name: Check directory
-        run: ls -l
+        run: ls -l docs/
 
       - name: Sphinx build
         run: |

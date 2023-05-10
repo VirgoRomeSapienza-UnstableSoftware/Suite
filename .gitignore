@@ -12,3 +12,8 @@ docs/source
 # PyPi specific files
 dist/
 *.egg-info
+.eggs
+
+# Various
+.vscode
+build/
