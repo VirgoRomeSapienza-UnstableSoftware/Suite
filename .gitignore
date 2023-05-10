@@ -1,5 +1,9 @@
 # Files of the virtual environment
-vnv/
+cartabianca-vnv/
+
+# Documentation building files
+docs/source
+*.bat
 
 # Matlab and sfdb files used for testings
 *.m
