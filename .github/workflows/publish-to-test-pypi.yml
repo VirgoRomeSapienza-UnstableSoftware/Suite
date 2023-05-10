@@ -25,8 +25,8 @@ jobs:
           python -m build
           twine check --strict dist/*
           
-      - name: Publish distribution 📦 to PyPI
+      - name: Publish distribution 📦 to Test PyPI
         uses: pypa/gh-action-pypi-publish@master
         with:
           user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ secrets.test_API_TOKEN }}
