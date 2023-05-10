@@ -1,7 +1,10 @@
 name: Auto hosting of web documentation
+
 on: [push, pull_request, workflow_dispatch]
+
 permissions:
     contents: write
+
 jobs:
   docs:
     runs-on: ubuntu-latest
@@ -11,12 +14,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade sphinx sphinx_rtd_theme sphinx_automod_api
+          python -m pip install --upgrade sphinx sphinx-rtd-theme sphinx-automod-api
 
       - name: Sphinx build
         run: |
           sphinx-build doc _build
-          
+
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
