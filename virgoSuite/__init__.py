@@ -1,1 +1,1 @@
-from .readSFDB import fread
+from .sfdb import fread, Sfdb

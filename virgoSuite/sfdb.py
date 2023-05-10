@@ -2,9 +2,14 @@
 #  under GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
 
 import numpy as np
+import pandas
 
-location = "C:/Coding/CartaBianca/"
+location = "C:/Coding/Suite/"
 file_name = location + "H1_DCS-CALIB_STRAIN_GATED_SUB60HZ_C01_20190401_000000.SFDB09"
+
+
+class Sfdb(pandas.DataFrame):
+    pass
 
 
 def fread(fid, nelements, dtype):
@@ -38,16 +43,3 @@ def fread(fid, nelements, dtype):
     data_array.shape = (nelements, 1)
 
     return data_array
-
-
-def foo(foo1, foo2):
-    """foo _summary_
-
-    _extended_summary_
-
-    Arguments:
-        foo1 -- _description_
-        foo2 -- _description_
-    """
-
-    return 0
