@@ -16,7 +16,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 setup(
     # Name of the project, registered the first time this was uploaded
     name="virgoSuite",  #   Required
-    version_config={
+    setuptools_git_versioning={
         "enabled": True,
         "template": "{tag}",
     },
