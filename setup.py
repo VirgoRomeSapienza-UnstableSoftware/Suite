@@ -16,12 +16,11 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 setup(
     # Name of the project, registered the first time this was uploaded
     name="virgoSuite",  #   Required
-    version_config=True,
     version_config={
+        "enabled": True,
         "template": "{tag}",
     },
     setup_requires=["setuptools-git-versioning"],
-    version="0.0.2",  #   Required
     description="Toolbox used from the data analysis group of Virgo Rome",  # Optional
     long_description=long_description,
     author="Riccardo Felicetti",
