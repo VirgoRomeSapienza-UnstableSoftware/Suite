@@ -2,9 +2,6 @@ name: Auto hosting of web documentation
 
 on: [push, pull_request]
 
-permissions:
-    contents: write
-
 jobs:
   docs:
     runs-on: ubuntu-latest
