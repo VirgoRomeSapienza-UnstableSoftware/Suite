@@ -1,6 +1,6 @@
 name: Auto hosting of web documentation
 
-on: push
+on: [push, pull]
 
 jobs:
     docs:
