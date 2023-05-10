@@ -22,6 +22,7 @@ setup(
     },
     setup_requires=["setuptools-git-versioning"],
     description="Toolbox used from the data analysis group of Virgo Rome",  # Optional
+    long_description_content_type="text/markdown",
     long_description=long_description,
     author="Riccardo Felicetti",
     author_email="riccardo.felicetti@infn.it",
