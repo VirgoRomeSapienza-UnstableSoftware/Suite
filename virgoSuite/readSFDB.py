@@ -8,7 +8,7 @@ file_name = location + "H1_DCS-CALIB_STRAIN_GATED_SUB60HZ_C01_20190401_000000.SF
 
 
 def fread(fid, nelements, dtype):
-    '''
+    """
     Reads SFDB like matlab
 
     Function to read SFDB files as in matlab.
@@ -29,7 +29,7 @@ def fread(fid, nelements, dtype):
         >>> fread("example.SFDB09", 1, np.int32)
         [[0]]
 
-    '''
+    """
     if dtype is str:
         dt = np.uint8  # WARNING: assuming 8-bit ASCII for np.str!
     else:
@@ -38,3 +38,16 @@ def fread(fid, nelements, dtype):
     data_array.shape = (nelements, 1)
 
     return data_array
+
+
+def foo(foo1, foo2):
+    """foo _summary_
+
+    _extended_summary_
+
+    Arguments:
+        foo1 -- _description_
+        foo2 -- _description_
+    """
+
+    return 0
