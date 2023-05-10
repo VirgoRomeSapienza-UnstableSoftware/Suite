@@ -8,3 +8,7 @@ docs/source
 # Matlab and sfdb files used for testings
 *.m
 *.SFDB09
+
+# PyPi specific files
+dist/
+*.egg-info
