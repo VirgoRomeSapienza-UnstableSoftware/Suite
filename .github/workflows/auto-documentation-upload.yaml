@@ -20,11 +20,14 @@ jobs:
         run: |
           sphinx-build docs/source docs/build
 
+      - name: Check directory
+        run: ls -l
+
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
           publish_branch: gh-pages
           github_token: ${{ secrets.AUTO_RELEASE }}
-          publish_dir: _build/
+          publish_dir: docs/build
           force_orphan: true
