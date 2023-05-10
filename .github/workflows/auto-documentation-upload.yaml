@@ -14,11 +14,7 @@ jobs:
 
             - name: Install dependencies
               run: |
-                python -m pip install --upgrade sphinx sphinx-rtd-theme
-
-            - name: Check directory
-              run: |
-                ls -l docs/
+                python -m pip install --upgrade sphinx sphinx-rtd-theme sphinx-automodapi
 
             - name: Sphinx build
               run: |
