@@ -1,4 +1,4 @@
-name: Docs
+name: Auto hosting of web documentation
 on: [push, pull_request, workflow_dispatch]
 permissions:
     contents: write
@@ -10,12 +10,12 @@ jobs:
       - uses: actions/setup-python@v3
       - name: Install dependencies
         run: |
-          pip 
-          install
-          sphinx
-          sphinx_rtd_theme 
-          sphinx_automod_api 
-          
+          pip |
+          install |
+          sphinx |
+          sphinx_rtd_theme |
+          sphinx_automod_api
+
       - name: Sphinx build
         run: |
           sphinx-build doc _build
