@@ -12,7 +12,7 @@ jobs:
             - name: Install dependencies
               run: |
                 python -m pip install --upgrade pip
-                python -m pip install --upgrade -r virgoSuite/requirements.txt
+                python -m pip install --upgrade -r src/virgoSuite/requirements.txt
 
             - name: Sphinx build
               run: |
