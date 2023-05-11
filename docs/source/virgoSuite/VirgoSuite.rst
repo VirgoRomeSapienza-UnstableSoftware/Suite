@@ -7,5 +7,5 @@ virgoSuite
    :maxdepth: 1
    :caption: Content
 
-.. automodsumm:: virgoSuite   
+.. automodsumm:: virgoSuite.sfdb
    :toctree: api

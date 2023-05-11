@@ -1,6 +1,6 @@
 fread
 =====
 
-.. currentmodule:: virgoSuite
+.. currentmodule:: virgoSuite.sfdb
 
 .. autofunction:: fread

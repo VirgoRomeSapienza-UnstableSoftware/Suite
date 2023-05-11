@@ -30,5 +30,6 @@ setup(
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
     ],
-    packages=find_packages(include=["virgoSuie", "virgoSuite.*"]),
+    package_dir={"": "src"},
+    packages=find_packages(where="src"),
 )
