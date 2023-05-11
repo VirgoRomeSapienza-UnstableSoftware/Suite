@@ -5,8 +5,8 @@ import numpy as np
 import pandas
 import zarr
 
-location = "C:/Coding/Suite/"
-file_name = location + "H1_DCS-CALIB_STRAIN_GATED_SUB60HZ_C01_20190401_000000.SFDB09"
+# location = "C:/Coding/Suite/"
+# file_name = location + "H1_DCS-CALIB_STRAIN_GATED_SUB60HZ_C01_20190401_000000.SFDB09"
 
 
 def fread(fid, n_elements: int, dtype: str) -> np.ndarray:
@@ -23,6 +23,11 @@ def fread(fid, n_elements: int, dtype: str) -> np.ndarray:
             number of elements to be read.
         dtype : type
             type of the element to select.
+
+    Returns
+    *******
+        data_array : numpy.ndarray
+            A numpy.ndarray containing the values extracted
 
     Examples
     ********
