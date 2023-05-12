@@ -392,9 +392,3 @@ def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
     )
 
     return dataset
-
-
-location = (
-    "C:/Coding/Suite/H1_DCS-CALIB_STRAIN_GATED_SUB60HZ_C01_20190401_000000.SFDB09"
-)
-dataset = load_file_sfdb(location, ".")
