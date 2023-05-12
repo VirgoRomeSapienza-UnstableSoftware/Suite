@@ -222,7 +222,14 @@ def read_block(fid) -> list:
     )
     fft_data = _[0::2] + 1j * _[1::2]
 
-    return header, periodogram, autoregressive_spectrum, fft_data
+    # Here is important to specify to export data as float, otherwise the
+    # precision will not be enough
+    return (
+        header,
+        periodogram.astype(float),
+        autoregressive_spectrum.astype(float),
+        fft_data.astype(float),
+    )
 
 
 def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
@@ -258,56 +265,41 @@ def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
                 periodogram = np.vstack((periodogram, tps))
                 autoregressive_spectrum = np.vstack((autoregressive_spectrum, sps))
                 fft_data = np.vstack((fft_data, sft))
-
     # ============================================
     # Preparing data to be saved in the new format
     # ============================================
-    """
-
-    This part needs some study with Federico
-
-    """
-
-    minimum_frequency = header.starting_fft_frequency[0]  # 0 Hz
-    # This here is hard coded.
-    # We can discuss if we can obtain it from the time of subsampling
-    # Questo non mi sembra giusto!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    maximum_frequency = 128
-    frequency_interval = maximum_frequency - minimum_frequency
-    frequencies = np.linspace(
-        start=minimum_frequency,
-        stop=maximum_frequency,
-        num=int(frequency_interval / header.frequency_resolution[0]),
-    )
-    frequencies = (
+    data_frequencies = (
         np.arange(
             start=0,
-            stop=periodogram.shape[0],
+            stop=fft_data.shape[1],
+            step=1,
+            dtype=int,
+        )
+        * header.frequency_resolution[0]
+    )
+    spectrum_frequencies = (
+        np.arange(
+            start=0,
+            stop=periodogram.shape[1],
             step=1,
             dtype=int,
         )
         * header.frequency_resolution[0]
         * header.reduction_factor[0]
     )
-    subsampled_frequencies = np.linspace(
-        start=minimum_frequency,
-        stop=maximum_frequency,
-        num=int(
-            frequency_interval
-            / (header.frequency_resolution[0] * header.reduction_factor[0]),
-        ),
-    )
 
     total_normalization = (
         np.sqrt(2)
         * header.normalization_factor
         * header.window_normalization
-        * np.sqrt(1 - header.percentage_of_zeroes)
+        / np.sqrt(1 - header.percentage_of_zeroes)
     )
     power_spectrum = np.square(
         np.abs(np.einsum("ij, i -> ij", fft_data, total_normalization))
     )
-    power_spectrum = np.einsum("ij, i -> ij", power_spectrum, header.scaling_factor)
+    power_spectrum = np.einsum(
+        "ij, i -> ij", power_spectrum, header.scaling_factor**2
+    )
 
     # float64 slows down computation and cannot be handled by GPU
     # so we are forced to take into account the possibility of overflow
@@ -319,11 +311,11 @@ def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
 
     # autoregressive_spectrum and periodogram are stored in sfdbs
     # as square roots, so we need to make the square of them
-    autoregressive_spectrum = np.einsum(
-        "ij, i -> ij", np.square(autoregressive_spectrum), header.scaling_factor
+    autoregressive_spectrum = np.square(
+        np.einsum("ij, i -> ij", autoregressive_spectrum, header.scaling_factor)
     )
-    periodogram = np.einsum(
-        "ij, i -> ij", np.square(periodogram), header.scaling_factor
+    periodogram = np.square(
+        np.einsum("ij, i -> ij", periodogram, header.scaling_factor)
     )
 
     # untill now, we have filtered and selected frequencies. so it was
@@ -354,7 +346,6 @@ def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
         format="gps",
         scale="utc",
     )
-    gps_time_values = gps_time.value.astype(np.float64)
     # ISO 8601 compliant date-time format: YYYY-MM-DD HH:MM:SS.sss
     iso_time_values = gps_time.iso
     # time of the first FFT of this file
@@ -364,31 +355,46 @@ def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
     # ================
     # Saving to xarray
     # ================
-    print(frequencies.shape)
-    print(datetimes.shape)
-    print(header.detector.shape)
-    print(power_spectrum.shape)
-    coordinate_names = ["frequency", "time", "detector"]
-    coordinate_values = [frequencies, datetimes, header.detector]
+    coordinate_names = ["detector", "time", "frequency"]
     attributes = {
-        "FFT_lenght": header.fft_lenght,
+        "FFT_lenght": header.fft_lenght[0],
         "observing_run": "O3",  # TODO Remove hard coding
         "calibration": "C01",  # TODO Remove hard coding
-        "maximum_frequency": maximum_frequency,  # TODO hardcoded
         "start_ISO_time": human_readable_start_time,
         # TODO Take back all the attributes in the sfdb!!!!
     }
 
-    spectrogram = xarray.DataArray(
-        data=np.expand_dims(np.transpose(power_spectrum), axis=1),
+    data_coordinate_values = [[header.detector[0]], datetimes, data_frequencies]
+    spectrum_coordinate_values = [[header.detector[0]], datetimes, spectrum_frequencies]
+
+    periodogram = xarray.DataArray(
+        data=np.expand_dims(np.transpose(periodogram), axis=0),
         dims=coordinate_names,
-        coords=coordinate_values,
+        coords=spectrum_coordinate_values,
     )
-    dataset = xarray.Dataset(
+    autoregressive_spectrum = xarray.DataArray(
+        data=np.expand_dims(np.transpose(autoregressive_spectrum), axis=0),
+        dims=coordinate_names,
+        coords=spectrum_coordinate_values,
+    )
+    spectrum_dataset = xarray.Dataset(
         data_vars={
-            "spectrogram": spectrogram,
+            "periodogram": periodogram,
+            "autoregressive_spectrum": autoregressive_spectrum,
         },
         attrs=attributes,
     )
 
-    return dataset
+    data = xarray.DataArray(
+        data=np.expand_dims(np.transpose(power_spectrum), axis=0),
+        dims=coordinate_names,
+        coords=data_coordinate_values,
+    )
+    data_dataset = xarray.Dataset(
+        data_vars={
+            "data": data,
+        },
+        attrs=attributes,
+    )
+
+    return data_dataset, spectrum_dataset

@@ -7,6 +7,7 @@ cartabianca-vnv/
 # Matlab and sfdb files used for testings
 *.m
 *.SFDB09
+database/
 
 # PyPi specific files
 dist/
