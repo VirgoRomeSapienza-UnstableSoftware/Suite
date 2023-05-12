@@ -17,3 +17,4 @@ dist/
 .vscode
 build/
 SFDB_04
+*.scripts*
