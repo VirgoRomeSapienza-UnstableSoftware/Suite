@@ -7,7 +7,14 @@ import pandas
 import astropy.time
 import xarray
 
+import os
+import glob
+from fnmatch import fnmatch
+
 import matplotlib.pyplot as plt
+
+# =============================================================================
+# =============================================================================
 
 
 def fread(fid, n_elements: int, dtype: str) -> np.ndarray:
@@ -48,6 +55,10 @@ def fread(fid, n_elements: int, dtype: str) -> np.ndarray:
         return data_array[0]
     else:
         return data_array
+
+
+# =============================================================================
+# =============================================================================
 
 
 def read_block(fid) -> list:
@@ -232,6 +243,10 @@ def read_block(fid) -> list:
     )
 
 
+# =============================================================================
+# =============================================================================
+
+
 def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
     """
     SFDB to netCDF4
@@ -398,3 +413,45 @@ def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
     )
 
     return data_dataset, spectrum_dataset
+
+
+# =============================================================================
+# =============================================================================
+
+
+def list_sfdb_in_directory(path: str) -> list:
+    file_names = []
+    # Check if a directory was given
+    is_a_directory = os.path.isdir(path)
+    if is_a_directory:
+        for path, subdirs, files in os.walk(path):
+            for name in files:
+                if fnmatch(name, "*.SFDB09"):
+                    file_names.append(os.path.join(path, name))
+
+    return file_names
+
+
+# =============================================================================
+# =============================================================================
+
+
+def convert_sfdb(
+    path_to_sfdb: str,
+    output_path: str,
+    output_database_format: str,
+) -> None:
+    # First we check whether a directory or a file are provided
+    is_a_File = os.path.isfile(path_to_sfdb)
+    is_a_directory = os.path.isdir(path_to_sfdb)
+    if (not is_a_File) and (not is_a_directory):
+        raise TypeError("Please check the path to the sfdb database.")
+
+    # Opening the file (files)
+    if is_a_File:
+        file_list = [path_to_sfdb]
+    elif is_a_directory:
+        file_list = list_sfdb_in_directory(path_to_sfdb)
+
+    for file in file_list:
+        ...
