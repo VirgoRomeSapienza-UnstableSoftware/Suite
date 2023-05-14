@@ -89,13 +89,13 @@ def read_block(fid: TextIO) -> list:
     handy packed version.
 
     Parameters
-    ##########
+    **********
         fid : TextIO
             SFDB File
 
 
     Returns
-    #######
+    *******
         header : dict
             Header element of SFDB files, see below for specifications.
 
