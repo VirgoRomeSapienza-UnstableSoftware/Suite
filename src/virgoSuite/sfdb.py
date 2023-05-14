@@ -97,6 +97,7 @@ def read_block(fid: TextIO) -> list:
     Returns
     #######
         header : dict
+            Header element of SFDB files, see below for specifications.
 
         periodogram: np.ndarray of float
 
