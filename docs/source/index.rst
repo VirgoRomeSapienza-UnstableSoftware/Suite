@@ -6,6 +6,8 @@
 Welcome to virgoSuite's documentation!
 ======================================
 
+.. _Home Page
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:

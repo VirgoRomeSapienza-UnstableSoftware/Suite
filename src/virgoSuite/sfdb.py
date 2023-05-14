@@ -1,4 +1,4 @@
-# Copyright (C) 2023  Riccardo Felicetti (riccardo.felicetti@roma1.it)
+# Copyright (C) 2023  Riccardo Felicetti (riccardo.felicetti@infn.it)
 #  under GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
 #
 # The SFDB09 file format (Short FFT DataBase, 2009 specification) is developed by Sergio Frasca and Ornella Piccinni
@@ -22,7 +22,7 @@ import astropy.time
 import xarray
 
 import os
-import glob
+
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import TextIO
@@ -84,7 +84,8 @@ def read_block(fid: TextIO) -> list:
     """
     Read a block of FFTs
 
-    Snag inspired function to read a block of FFTs from a SFDB file. The function
+    `Snag <http://grwavsf.roma1.infn.it/snag/>` inspired function to read a
+     block of FFTs from a SFDB file. The function
     will look for a list of values inside the file and will return them in a
     handy packed version.
 
@@ -97,13 +98,28 @@ def read_block(fid: TextIO) -> list:
     Returns
     *******
         header : dict
-            Header element of SFDB files, see below for specifications.
+            Header element of SFDB files, see :ref:`below<Header of an SFDB>` for specifications.
 
         periodogram: np.ndarray of float
+            The periodogram contained in SFDBs.
 
         autoregressive_spectrum : np.ndarray of float
+            The autoregressive spectrum contained in SFDBs.
 
         fft_data : np.ndarray of complex
+            The complex data used to compute the spectrum.
+
+
+    .. _Header of an SFDB
+
+    Header of an SFDB file
+    ======================
+
+    A typical SFDB files contains a special set of entries, they are called header
+    and are a set of useful metadata that come with the rest of the data.
+    Due to the way SFDB files are generated, we are bound to read those values
+    sequentially and to specify what those numbers are "Hard Coded", however this
+    will not be a thing anymore in the `Suite<Home Page>`
 
     """
     count = fread(fid, 1, "double")  # count
