@@ -1,7 +1,21 @@
-# Copyright (C) 2023  Riccardo Felicetti
+# Copyright (C) 2023  Riccardo Felicetti (riccardo.felicetti@roma1.it)
 #  under GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+#
+# The SFDB09 file format (Short FFT DataBase, 2009 specification) is developed by Sergio Frasca and Ornella Piccinni
+#
+# The following Code is a derived and improved version of the software from the
+# master's thesis work of Federico Muciaccia (federicomuciaccia@gmail.com),
+# https://github.com/FedericoMuciaccia/RGBgw/tree/master/code.
+#
+# The function that reads the sfdbs is a porting from the code made by
+# Pia Astone, defined inside the Snag Matlab package (written by Sergio Frasca).
+#
+# Snag is a Matlab data analysis toolbox oriented to gravitational-wave antenna data
+# Snag webpage: http://grwavsf.roma1.infn.it/snag/
+# version 2, released 12 May 2017
+# installation instructions:
+# http://grwavsf.roma1.infn.it/snag/Snag2_UG.pdf
 
-# %%
 import numpy as np
 import pandas
 import astropy.time
@@ -11,6 +25,7 @@ import os
 import glob
 from fnmatch import fnmatch
 from pathlib import Path
+from typing import TextIO
 
 import matplotlib.pyplot as plt
 
@@ -19,32 +34,34 @@ import matplotlib.pyplot as plt
 # =============================================================================
 
 
-def fread(fid, n_elements: int, dtype: str) -> np.ndarray:
+def fread(fid: TextIO, n_elements: int, dtype: str) -> np.ndarray:
     """
-    Reads SFDB like matlab
+    MatLab-like file reading
 
-    Function to read SFDB files as in matlab.
+    A simple function that reproduces the behaviour of fread() function in matlab.
+    It is used inside the VirgoSuite package to read SFDB files.
 
     Parameters
     **********
-        fid : str
-            file path.
+        fid : TectIO
+            The file to be read.
         nelements : int
-            number of elements to be read.
+            Number of elements to be read in sequence.
         dtype : type
-            type of the element to select.
+            Type of the element to select. It is very important to explicitly
+            pass the data type, this avoids incorrect readings.
 
     Returns
     *******
         data_array : numpy.ndarray
-            A numpy.ndarray containing the values extracted
+            A numpy.ndarray containing the values extracted.
 
     Examples
     ********
         Extracting an integer from example.SFDB09
 
-        >>> fread("example.SFDB09", 1, np.int32)
-        [[0]]
+        >>> fread("example.SFDB09", 2, np.int32)
+        [[3], [15]]
 
     """
     if dtype is str:
@@ -63,7 +80,31 @@ def fread(fid, n_elements: int, dtype: str) -> np.ndarray:
 # =============================================================================
 
 
-def read_block(fid) -> list:
+def read_block(fid: TextIO) -> list:
+    """
+    Read a block of FFTs
+
+    Snag inspired function to read a block of FFTs from a SFDB file. The function
+    will look for a list of values inside the file and will return them in a
+    handy packed version.
+
+    Parameters
+    ##########
+        fid : TextIO
+            SFDB File
+
+
+    Returns
+    #######
+        header : dict
+
+        periodogram: np.ndarray of float
+
+        autoregressive_spectrum : np.ndarray of float
+
+        fft_data : np.ndarray of complex
+
+    """
     count = fread(fid, 1, "double")  # count
 
     det = fread(fid, 1, "int32")  # detector
