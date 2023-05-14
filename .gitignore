@@ -16,7 +16,7 @@ dist/
 
 # Various
 .vscode
-build/
+docs/build/
 SFDB_04
 *.scripts*
 *.code-workspace
