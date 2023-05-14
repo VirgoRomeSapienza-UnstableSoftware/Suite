@@ -29,6 +29,8 @@ from typing import TextIO
 
 import matplotlib.pyplot as plt
 
+pandas.DataFrame()
+
 
 # =============================================================================
 # =============================================================================
@@ -42,26 +44,26 @@ def fread(fid: TextIO, n_elements: int, dtype: str) -> np.ndarray:
     It is used inside the VirgoSuite package to read SFDB files.
 
     Parameters
-    **********
-        fid : TectIO
-            The file to be read.
-        nelements : int
-            Number of elements to be read in sequence.
-        dtype : type
-            Type of the element to select. It is very important to explicitly
-            pass the data type, this avoids incorrect readings.
+    ----------
+    fid : TectIO
+        The file to be read.
+    nelements : int
+        Number of elements to be read in sequence.
+    dtype : type
+        Type of the element to select. It is very important to explicitly
+        pass the data type, this avoids incorrect readings.
 
     Returns
-    *******
-        data_array : numpy.ndarray
-            A numpy.ndarray containing the values extracted.
+    -------
+    data_array : numpy.ndarray
+        A numpy.ndarray containing the values extracted.
 
     Examples
-    ********
-        Extracting an integer from example.SFDB09
+    --------
+    Extracting an integer from example.SFDB09
 
-        >>> fread("example.SFDB09", 2, np.int32)
-        [[3], [15]]
+    >>> fread("example.SFDB09", 2, np.int32)
+    [[3], [15]]
 
     """
     if dtype is str:
@@ -84,42 +86,41 @@ def read_block(fid: TextIO) -> list:
     """
     Read a block of FFTs
 
-    `Snag <http://grwavsf.roma1.infn.it/snag/>` inspired function to read a
-     block of FFTs from a SFDB file. The function
-    will look for a list of values inside the file and will return them in a
-    handy packed version.
+    `Snag <http://grwavsf.roma1.infn.it/snag/>`_ inspired function to read a
+    block of FFTs from a SFDB file. The function will look for a list of values
+    inside the file and will return them in an handy packed version.
 
     Parameters
-    **********
-        fid : TextIO
-            SFDB File
-
+    ----------
+    fid : TextIO
+        SFDB File
 
     Returns
-    *******
-        header : dict
-            Header element of SFDB files, see :ref:`below<Header of an SFDB>` for specifications.
+    -------
+    header : dict
+        Header element of SFDB files, see for specifications.
+    periodogram: np.ndarray of float
+        The periodogram contained in SFDBs.
+    autoregressive_spectrum : np.ndarray of float
+        The autoregressive spectrum contained in SFDBs.
+    fft_data : np.ndarray of complex
+        The complex data used to compute the spectrum.
 
-        periodogram: np.ndarray of float
-            The periodogram contained in SFDBs.
-
-        autoregressive_spectrum : np.ndarray of float
-            The autoregressive spectrum contained in SFDBs.
-
-        fft_data : np.ndarray of complex
-            The complex data used to compute the spectrum.
-
-
-    .. _Header of an SFDB
-
-    Header of an SFDB file
-    ======================
+    Notes
+    ----------------------
 
     A typical SFDB files contains a special set of entries, they are called header
-    and are a set of useful metadata that come with the rest of the data.
+    and contain a set of useful metadata.
     Due to the way SFDB files are generated, we are bound to read those values
     sequentially and to specify what those numbers are "Hard Coded", however this
-    will not be a thing anymore in the `Suite<index.rst#Home Page>`
+    will not be a thing anymore in the :doc:`Suite</index>`.
+
+    The content of the header is the following:
+
+    * count : double
+         A control variable # TODO To be understood!!
+    * detector: int32
+         The antenna used for the measurement
 
     """
     count = fread(fid, 1, "double")  # count
