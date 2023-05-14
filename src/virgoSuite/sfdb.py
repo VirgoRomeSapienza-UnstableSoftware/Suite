@@ -10,8 +10,10 @@ import xarray
 import os
 import glob
 from fnmatch import fnmatch
+from pathlib import Path
 
 import matplotlib.pyplot as plt
+
 
 # =============================================================================
 # =============================================================================
@@ -239,7 +241,7 @@ def read_block(fid) -> list:
         header,
         periodogram.astype(float),
         autoregressive_spectrum.astype(float),
-        fft_data.astype(float),
+        fft_data.astype(complex),
     )
 
 
@@ -247,7 +249,7 @@ def read_block(fid) -> list:
 # =============================================================================
 
 
-def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
+def load_file_sfdb(path_to_sfdb: str) -> pandas.DataFrame:
     """
     SFDB to netCDF4
 
@@ -376,7 +378,6 @@ def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
         "observing_run": "O3",  # TODO Remove hard coding
         "calibration": "C01",  # TODO Remove hard coding
         "start_ISO_time": human_readable_start_time,
-        # TODO Take back all the attributes in the sfdb!!!!
     }
 
     data_coordinate_values = [[header.detector[0]], datetimes, data_frequencies]
@@ -400,14 +401,20 @@ def load_file_sfdb(path_to_sfdb: str, save_path: str) -> pandas.DataFrame:
         attrs=attributes,
     )
 
-    data = xarray.DataArray(
+    power_spectrum = xarray.DataArray(
         data=np.expand_dims(np.transpose(power_spectrum), axis=0),
+        dims=coordinate_names,
+        coords=data_coordinate_values,
+    )
+    complex_data = xarray.DataArray(
+        data=np.expand_dims(fft_data, axis=0),
         dims=coordinate_names,
         coords=data_coordinate_values,
     )
     data_dataset = xarray.Dataset(
         data_vars={
-            "data": data,
+            "complex_data": complex_data,
+            "power_spectrum": power_spectrum,
         },
         attrs=attributes,
     )
@@ -439,13 +446,29 @@ def list_sfdb_in_directory(path: str) -> list:
 def convert_sfdb(
     path_to_sfdb: str,
     output_path: str,
-    output_database_format: str,
+    output_database_format: list = "all",
+    compression: bool = False,
 ) -> None:
     # First we check whether a directory or a file are provided
     is_a_File = os.path.isfile(path_to_sfdb)
     is_a_directory = os.path.isdir(path_to_sfdb)
     if (not is_a_File) and (not is_a_directory):
         raise TypeError("Please check the path to the sfdb database.")
+
+    # Supported save type
+    supported_save_formats = [
+        "zarr",
+        "Zarr",
+        "ZARR",
+        "all",
+    ]
+
+    if output_database_format not in supported_save_formats:
+        raise Exception(
+            f"Save format not supported yet!\nPlease select a valid format from the following list:\n{supported_save_formats}"
+        )
+    elif output_database_format == "all":
+        output_database_format = ["zarr"]
 
     # Opening the file (files)
     if is_a_File:
@@ -454,4 +477,53 @@ def convert_sfdb(
         file_list = list_sfdb_in_directory(path_to_sfdb)
 
     for file in file_list:
-        ...
+        data, spectrum = load_file_sfdb(file)
+
+        calibration = data.calibration
+        run = data.observing_run
+        if data.detector == "Nautilus":
+            detector = "N"
+        elif data.detector == "Virgo":
+            detector = "V"
+        elif data.detector == "LIGO Hanford":
+            detector = "H"
+        elif data.detector == "LIGO Livingston":
+            detector = "L"
+
+        # Supports multiple save formats
+        if isinstance(output_database_format, str):
+            output_database_format = [output_database_format]
+        elif not isinstance(output_database_format, (list, str)):
+            raise TypeError("Please enter a valid format string or list of strings")
+
+        for save_format in output_database_format:
+            if (
+                (save_format == "zarr")
+                or (save_format == "Zarr")
+                or (save_format == "ZARR")
+            ):
+                save_path = (
+                    output_path
+                    + f"/DATABASE/zarr/{detector}/{run}/{calibration}/power_spectrum.zarr"
+                )
+                Path(save_path).mkdir(parents=True, exist_ok=True, mode=0o777)
+                data.to_zarr(
+                    save_path,
+                    mode="w",
+                )
+
+            elif (
+                (save_format == "netCDF4")
+                or (save_format == "CDF4")
+                or (save_format == "netcdf")
+            ):
+                save_path = (
+                    output_path
+                    + f"/DATABASE/netCDF4/{calibration}/{run}/{detector}/power_spectrum.netCDF4"
+                )
+                Path(save_path).mkdir(parents=True, exist_ok=True, mode=0o777)
+                data.to_netcdf(
+                    save_path,
+                    mode="w",
+                    engine="scipy",
+                )
