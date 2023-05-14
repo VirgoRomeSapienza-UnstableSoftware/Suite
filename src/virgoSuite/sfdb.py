@@ -119,7 +119,7 @@ def read_block(fid: TextIO) -> list:
     and are a set of useful metadata that come with the rest of the data.
     Due to the way SFDB files are generated, we are bound to read those values
     sequentially and to specify what those numbers are "Hard Coded", however this
-    will not be a thing anymore in the `Suite<Home Page>`
+    will not be a thing anymore in the `Suite<index.rst#Home Page>`
 
     """
     count = fread(fid, 1, "double")  # count
