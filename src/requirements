@@ -95,12 +95,13 @@ sphinxcontrib-serializinghtml==1.1.5
 stack-data==0.6.2
 toolz==0.12.0
 tornado==6.3.1
+tqdm==4.65.0
 traitlets==5.9.0
 twine==4.0.2
 typing_extensions==4.5.0
 tzdata==2023.3
 urllib3==2.0.2
-virgoSuite==0.0.1
+virgoSuite==0.9
 wcwidth==0.2.6
 webencodings==0.5.1
 xarray==2023.4.2

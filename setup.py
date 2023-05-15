@@ -28,8 +28,19 @@ setup(
     author_email="riccardo.felicetti@infn.it",
     license="MIT",
     classifiers=[
-        "Development Status :: 2 - Pre-Alpha",
+        "Development Status :: 3 - Alpha",
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
+    install_requires=[
+        "numpy",
+        "scipy",
+        "matplotlib",
+        "xarray",
+        "pandas",
+        "astropy",
+        "zarr",
+        "tqdm",
+        "requests",
+    ],
 )

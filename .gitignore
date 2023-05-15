@@ -19,5 +19,5 @@ dist/
 .vscode
 docs/build/
 SFDB_04
-#*.scripts*
+*.scripts.py
 *.code-workspace
