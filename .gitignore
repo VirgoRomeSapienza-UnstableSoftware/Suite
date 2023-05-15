@@ -1,5 +1,5 @@
 # Files of the virtual environment
-cartabianca-vnv/
+*-vnv/
 
 # Documentation building files
 *.bat
@@ -12,10 +12,9 @@ SFDBS/
 
 # PyPi specific files
 dist/
-*.egg-info
-.eggs/
 
 # Various
+.eggs/
 .vscode
 docs/build/
 *.scripts.py
