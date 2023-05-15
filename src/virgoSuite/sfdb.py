@@ -497,7 +497,6 @@ def load_file_sfdb(path_to_sfdb: str) -> pandas.DataFrame:
     iso_time_values = gps_time.iso
     # time of the first FFT of this file
     human_readable_start_time = iso_time_values[0]
-    print(human_readable_start_time)
     datetimes = pandas.to_datetime(iso_time_values)
 
     # ================
@@ -508,7 +507,7 @@ def load_file_sfdb(path_to_sfdb: str) -> pandas.DataFrame:
         "FFT_lenght": header.fft_lenght[0],
         "observing_run": "O3",  # TODO Remove hard coding
         "calibration": "C01",  # TODO Remove hard coding
-        "start_ISO_time": human_readable_start_time,
+        "start_ISO_time": str(human_readable_start_time),
     }
 
     data_coordinate_values = [
@@ -638,7 +637,7 @@ def convert_sfdb(
             ):
                 save_path = (
                     output_path
-                    + f"/DATABASE/zarr/{detector}/{run}/{calibration}/power_spectrum.zarr"
+                    + f"/DATABASE/zarr/{data.detector.values[0]}/{run}/{calibration}/power_spectrum.zarr"
                 )
                 # Path(save_path).mkdir(parents=True, exist_ok=True)
                 data.to_zarr(
@@ -652,7 +651,8 @@ def convert_sfdb(
                 or (save_format == "netcdf")
             ):
                 save_path = (
-                    output_path + f"/DATABASE/netcdf/{detector}/{run}/{calibration}/"
+                    output_path
+                    + f"/DATABASE/netcdf/{data.detector.values[0]}/{run}/{calibration}/"
                 )
                 Path(save_path).mkdir(parents=True, exist_ok=True)
                 data.to_netcdf(
@@ -661,3 +661,12 @@ def convert_sfdb(
                     engine="NETCDF4",
                     invalid_netcdf=True,
                 )
+
+
+class Foo:
+    """Foo _summary_
+
+    _extended_summary_
+    """
+
+    pass
