@@ -29,8 +29,6 @@ from typing import TextIO
 
 import matplotlib.pyplot as plt
 
-pandas.DataFrame()
-
 
 # =============================================================================
 # =============================================================================
@@ -45,7 +43,7 @@ def fread(fid: TextIO, n_elements: int, dtype: str) -> np.ndarray:
 
     Parameters
     ----------
-    fid : TectIO
+    fid : TextIO
         The file to be read.
     nelements : int
         Number of elements to be read in sequence.
@@ -118,9 +116,77 @@ def read_block(fid: TextIO) -> list:
     The content of the header is the following:
 
     * count : double
-         A control variable # TODO To be understood!!
+        A control variable # TODO To be understood!!
     * detector: int32
-         The antenna used for the measurement
+        The antenna used for the measurement
+    * gps_seconds: int32
+        Seconds of the gps time
+    * gps_nanoseconds: int32
+        Nanoseconds of the gps time
+    * fft_lenght: double
+        Old tbase
+    * starting_fft_sample_index: int32
+        Old firstfrind
+    * unilateral_number_of_samples: int32
+        Old nsamples
+    * reduction_factor: int32
+        Old red
+    * fft_interlaced: int32
+        Old type
+    * number_of_flags: float32
+        Old n_flag
+    * scaling_factor: float32
+        Old einstein
+    * mjd_time: double
+        Old mjdtime
+    * fft_index: int32
+        Old nfft
+    * window_type: int32
+        Old wink
+    * normalization_factor: float32
+        Old normd
+    * window_normalization: float32
+        Old normw
+    * starting_fft_frequency: double
+        Old frinit
+    * subsampling_time: double
+        Old tsamplu
+    * frequency_resolution: double
+        Old deltanu
+    * v_x: double
+        X coordinate of the velocity of the detector !TODO what frame
+    * v_y: double
+        Y coordinate of the velocity of the detector !TODO what frame
+    * v_z: double
+        Z coordinate of the velocity of the detector !TODO what frame
+    * p_x: double
+        X coordinate of the position of the detector !TODO what frame
+    * p_y: double
+        Y coordinate of the position of the detector !TODO what frame
+    * p_z: double
+        Z coordinate of the position of the detector !TODO what frame
+    * number_of_zeroes: int32
+        Old n_zeroes
+    * sat_howmany: double
+        Old sat_howmany !TODO not used anymore
+    * spare1: double
+        !TODO Not used
+    * spare2: double
+        !TODO Not used
+    * spare3: double
+        !TODO Not used
+    * percentage_of_zeroes: float32
+        Old spare4
+    * spare5: float32
+        !TODO Not used
+    * spare6: float32
+        !TODO Not used
+    * lenght_of_averaged_time_spectrum: int32
+        Old spare7
+    * scientific_segment: int32
+        Old spare8
+    * spare9: int32
+        !TODO Not used
 
     """
     count = fread(fid, 1, "double")  # count
