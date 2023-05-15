@@ -198,13 +198,13 @@ def read_block(fid: TextIO) -> list:
 
     det = fread(fid, 1, "int32")  # detector
     if det == 0:
-        detector = "Nautilus"
+        detector = "N"
     elif det == 1:
-        detector = "Virgo"
+        detector = "V"
     elif det == 2:
-        detector = "LIGO Hanford"
+        detector = "H"
     elif det == 3:
-        detector = "LIGO Livingston"
+        detector = "L"
 
     gps_seconds = fread(fid, 1, "int32")  # gps_sec
     gps_nanoseconds = fread(fid, 1, "int32")  # gps_nsec
@@ -497,6 +497,7 @@ def load_file_sfdb(path_to_sfdb: str) -> pandas.DataFrame:
     iso_time_values = gps_time.iso
     # time of the first FFT of this file
     human_readable_start_time = iso_time_values[0]
+    print(human_readable_start_time)
     datetimes = pandas.to_datetime(iso_time_values)
 
     # ================
@@ -510,8 +511,16 @@ def load_file_sfdb(path_to_sfdb: str) -> pandas.DataFrame:
         "start_ISO_time": human_readable_start_time,
     }
 
-    data_coordinate_values = [[header.detector[0]], datetimes, data_frequencies]
-    spectrum_coordinate_values = [[header.detector[0]], datetimes, spectrum_frequencies]
+    data_coordinate_values = [
+        [header.detector[0]],
+        datetimes,
+        data_frequencies,
+    ]
+    spectrum_coordinate_values = [
+        [header.detector[0]],
+        datetimes,
+        spectrum_frequencies,
+    ]
 
     periodogram = xarray.DataArray(
         data=np.expand_dims(np.transpose(periodogram), axis=0),
@@ -601,7 +610,7 @@ def convert_sfdb(
             f"Save format not supported yet!\nPlease select a valid format from the following list:\n{supported_save_formats}"
         )
     elif output_database_format == "all":
-        output_database_format = ["zarr"]
+        output_database_format = ["zarr", "netcdf"]
 
     # Opening the file (files)
     if is_a_File:
@@ -614,14 +623,6 @@ def convert_sfdb(
 
         calibration = data.calibration
         run = data.observing_run
-        if data.detector == "Nautilus":
-            detector = "N"
-        elif data.detector == "Virgo":
-            detector = "V"
-        elif data.detector == "LIGO Hanford":
-            detector = "H"
-        elif data.detector == "LIGO Livingston":
-            detector = "L"
 
         # Supports multiple save formats
         if isinstance(output_database_format, str):
@@ -651,11 +652,12 @@ def convert_sfdb(
                 or (save_format == "netcdf")
             ):
                 save_path = (
-                    output_path + f"/DATABASE/netCDF4/{calibration}/{run}/{detector}/"
+                    output_path + f"/DATABASE/netcdf/{detector}/{run}/{calibration}/"
                 )
                 Path(save_path).mkdir(parents=True, exist_ok=True)
                 data.to_netcdf(
                     save_path + "power_spectrum.netCDF4",
                     mode="w",
-                    engine = "h5netcdf",
+                    engine="NETCDF4",
+                    invalid_netcdf=True,
                 )
