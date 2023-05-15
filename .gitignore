@@ -13,11 +13,10 @@ SFDBS/
 # PyPi specific files
 dist/
 *.egg-info
-.eggs
+.eggs/
 
 # Various
 .vscode
 docs/build/
-SFDB_04
 *.scripts.py
 *.code-workspace
