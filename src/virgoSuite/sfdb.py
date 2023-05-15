@@ -71,9 +71,14 @@ def fread(fid: TextIO, n_elements: int, dtype: str) -> np.ndarray:
     data_array = np.fromfile(fid, dt, n_elements)
 
     if n_elements == 1:
-        return data_array[0]
+        out_variable = data_array[0]
     else:
-        return data_array
+        out_variable = data_array
+
+    if (dt == "int") or (dt == "int32"):
+        return out_variable.astype("int64")
+    elif dt in ["float32", "double", "float", "float64", "single"]:
+        return out_variable.astype("double")
 
 
 # =============================================================================
@@ -364,9 +369,9 @@ def read_block(fid: TextIO) -> list:
     # precision will not be enough
     return (
         header,
-        periodogram.astype(float),
-        autoregressive_spectrum.astype(float),
-        fft_data.astype(complex),
+        periodogram.astype("float64"),
+        autoregressive_spectrum.astype("float64"),
+        fft_data.astype("complex128"),
     )
 
 
@@ -585,6 +590,9 @@ def convert_sfdb(
         "zarr",
         "Zarr",
         "ZARR",
+        "netcdf",
+        "netCDF4",
+        "CDF4",
         "all",
     ]
 
@@ -631,7 +639,7 @@ def convert_sfdb(
                     output_path
                     + f"/DATABASE/zarr/{detector}/{run}/{calibration}/power_spectrum.zarr"
                 )
-                Path(save_path).mkdir(parents=True, exist_ok=True, mode=0o777)
+                # Path(save_path).mkdir(parents=True, exist_ok=True)
                 data.to_zarr(
                     save_path,
                     mode="w",
@@ -643,12 +651,11 @@ def convert_sfdb(
                 or (save_format == "netcdf")
             ):
                 save_path = (
-                    output_path
-                    + f"/DATABASE/netCDF4/{calibration}/{run}/{detector}/power_spectrum.netCDF4"
+                    output_path + f"/DATABASE/netCDF4/{calibration}/{run}/{detector}/"
                 )
-                Path(save_path).mkdir(parents=True, exist_ok=True, mode=0o777)
+                Path(save_path).mkdir(parents=True, exist_ok=True)
                 data.to_netcdf(
-                    save_path,
+                    save_path + "power_spectrum.netCDF4",
                     mode="w",
-                    engine="scipy",
+                    engine = "h5netcdf",
                 )
