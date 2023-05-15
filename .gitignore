@@ -8,6 +8,7 @@ cartabianca-vnv/
 *.m
 *.SFDB09
 DATABASE/
+SFDBS/
 
 # PyPi specific files
 dist/
