@@ -21,6 +21,7 @@ import pandas
 import astropy.time
 import xarray
 import zarr
+from dask import delayed
 
 import os
 
@@ -31,6 +32,7 @@ from typing import TextIO
 import matplotlib.pyplot as plt
 from tqdm.contrib.telegram import tqdm, trange
 import string
+from dask.diagnostics import ProgressBar
 
 
 import random
@@ -92,16 +94,16 @@ def fread(fid: TextIO, n_elements: int, dtype: str) -> np.ndarray:
         out_variable = data_array
 
     if (dt == "int") or (dt == "int32"):
-        return out_variable.astype("int64")
+        return out_variable.astype("int32")
     elif dt in ["float32", "double", "float", "float64", "single"]:
-        return out_variable.astype("double")
+        return out_variable.astype("float32")
 
 
 # =============================================================================
 # =============================================================================
 
 
-def read_block(fid: TextIO) -> list:
+def read_block(fid: TextIO) -> tuple[dict, np.ndarray, np.ndarray, np.ndarray]:
     """
     Read a block of FFTs
 
@@ -217,13 +219,13 @@ def read_block(fid: TextIO) -> list:
 
     det = fread(fid, 1, "int32")  # detector
     if det == 0:
-        detector = "N"
+        detector = "Nautilus"
     elif det == 1:
-        detector = "V"
+        detector = "Virgo"
     elif det == 2:
-        detector = "H"
+        detector = "Hanford"
     elif det == 3:
-        detector = "L"
+        detector = "Livingston"
 
     gps_seconds = fread(fid, 1, "int32")  # gps_sec
     gps_nanoseconds = fread(fid, 1, "int32")  # gps_nsec
@@ -389,9 +391,9 @@ def read_block(fid: TextIO) -> list:
     # precision will not be enough
     return (
         header,
-        periodogram.astype("float64"),
-        autoregressive_spectrum.astype("float64"),
-        fft_data.astype("complex128"),
+        periodogram.astype("float32"),
+        autoregressive_spectrum.astype("float32"),
+        fft_data.astype("complex64"),
     )
 
 
@@ -401,10 +403,12 @@ def read_block(fid: TextIO) -> list:
 
 def load_file_sfdb(
     path_to_sfdb: str,
+    # -----Telegram Bot Notifications------
     telegram_notification: bool = False,
     token: str = "",
     chat_id: str = "",
-) -> pandas.DataFrame:
+    # -------------------------------------
+) -> list[xarray.Dataset]:
     """
     SFDB to netCDF4
 
@@ -412,18 +416,13 @@ def load_file_sfdb(
     netCDF4 is like hdf5 but hadles multidimensional data with more ease.
 
     Parameters
-    **********
-        path_to_sfdb : str
-            path to the file.
-        save_path : str
-            path to save folder
+    ----------
+    path_to_sfdb : str
+        path to the file.
+    save_path : str
+        path to save folder
 
     """
-
-    # SFDB files come with several attributes.
-    # We want to separate attributes, metadata and data to ensure readability
-    # and ease of use.
-
     with open(path_to_sfdb) as fid:
         if telegram_notification:
             _range = trange(
@@ -636,10 +635,10 @@ def convert_sfdb(
     path_to_sfdb: str,
     output_path: str,
     output_database_format: list = "all",
-    compression: bool = False,
     telegram_notifications: bool = False,
     token: str = "",
     chat_id: str = "",
+    compression: bool = False,
 ) -> None:
     # First we check whether a directory or a file are provided
     is_a_File = os.path.isfile(path_to_sfdb)
@@ -674,6 +673,7 @@ def convert_sfdb(
         print(f"{len(file_list)} files was found.")
     elif len(file_list) > 1:
         print(f"{len(file_list)} files were found.")
+
     print(f"Starting conversion...")
 
     if telegram_notifications:
@@ -706,10 +706,10 @@ def convert_sfdb(
                 print("Support for zarr has been haulted.")
                 print("Skipping.")
                 """
+
                 save_path = output_path + f"/DATABASE/zarr/fft_data.zarr"
                 save_path = zarr.storage.NestedDirectoryStore(
-                    path=save_path,
-                    dimension_separator="/",
+                    path=save_path, dimension_separator="/"
                 )
                 data.to_zarr(
                     save_path,
@@ -718,8 +718,7 @@ def convert_sfdb(
 
                 save_path = output_path + f"/DATABASE/zarr/spectrum.zarr"
                 save_path = zarr.storage.NestedDirectoryStore(
-                    path=save_path,
-                    dimension_separator="/",
+                    path=save_path, dimension_separator="/"
                 )
                 spectrum.to_zarr(
                     save_path,
@@ -732,6 +731,9 @@ def convert_sfdb(
                 or (save_format == "netcdf")
             ):
                 print("Saving to netCDF4...")
+                # encoding = {"gzip": True, "complevel": 9}
+                # encoding = {"gzip": True, "compression_opts": 9}  # h5py
+
                 save_path = output_path + f"/DATABASE/netcdf/{run}/{calibration}/FFT/"
                 Path(save_path).mkdir(parents=True, exist_ok=True)
                 data.to_netcdf(
@@ -739,6 +741,7 @@ def convert_sfdb(
                     mode="w",
                     engine="netcdf4",
                 )
+
                 save_path = (
                     output_path + f"/DATABASE/netcdf/{run}/{calibration}/SPECTRUM/"
                 )

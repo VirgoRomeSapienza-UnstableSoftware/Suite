@@ -19,3 +19,7 @@ dist/
 docs/build/
 *.scripts.py
 *.code-workspace
+*.ipynb
+*.txt
+db/
+ligo_h/

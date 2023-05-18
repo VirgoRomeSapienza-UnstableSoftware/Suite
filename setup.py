@@ -36,11 +36,9 @@ setup(
         "numpy",
         "scipy",
         "matplotlib",
-        "xarray",
         "pandas",
+        "h5py",
+        "dask",
         "astropy",
-        "zarr",
-        "tqdm",
-        "requests",
     ],
 )
