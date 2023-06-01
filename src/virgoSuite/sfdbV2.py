@@ -499,7 +499,7 @@ def sfdb_to_h5(
             list_of_timestaps_in_block.append(iso_time_value.encode("utf8"))
 
             # Setting compression level for FFT data files
-            compression_level = 9
+            compression_level = 1
 
             # Creating the subfolder for the raw data and spectrum data
             data_save_path = save_path + "/data"
