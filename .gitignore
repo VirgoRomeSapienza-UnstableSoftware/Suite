@@ -25,3 +25,4 @@ db/
 ligo_h/
 *.h5
 *.netcdf*
+.jupyterNotebooks/
