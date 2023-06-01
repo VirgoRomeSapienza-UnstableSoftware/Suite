@@ -589,6 +589,7 @@ def list_sfdb_in_directory(path: str) -> list:
 def convert_sfdb_database(
     path_to_sfdb_database: str,
     output_path: str,
+    theres_cleaning: bool = False,
 ) -> None:
     # First we check whether a directory or a file are provided
     is_a_File = os.path.isfile(path_to_sfdb_database)
@@ -626,7 +627,7 @@ def convert_sfdb_database(
 
         save_path = output_path + f"/{detector}/hdf5/{run}/{calibration}"
 
-        if len(path_splitted) > 8:
+        if theres_cleaning:
             cleaning = str(path_splitted[path_splitted.index("sfdb") + 3])
             save_path = save_path + f"{cleaning}"
 
