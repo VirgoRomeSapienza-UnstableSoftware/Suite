@@ -101,7 +101,6 @@ twine==4.0.2
 typing_extensions==4.5.0
 tzdata==2023.3
 urllib3==2.0.2
-virgoSuite==0.9
 wcwidth==0.2.6
 webencodings==0.5.1
 xarray==2023.4.2

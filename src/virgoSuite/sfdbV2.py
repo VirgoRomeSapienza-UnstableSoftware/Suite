@@ -26,17 +26,9 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import TextIO
 
-import random
-import string
+import dask.array
 
 import h5py
-
-
-def get_random_string(length: int) -> str:
-    # choose from all lowercase letter
-    letters = string.ascii_letters
-    result_str = "".join(random.choice(letters) for i in range(length))
-    return result_str
 
 
 # =============================================================================
@@ -393,10 +385,9 @@ def sfdb_to_h5(
     save_path: str,
 ) -> np.ndarray:
     """
-    SFDB to netCDF4
+    SFDB to HDF5
 
-    Contert SFDB files into netCDF4.
-    netCDF4 is like hdf5 but hadles multidimensional data with more ease.
+    Conterts SFDB files into HDF5.
 
     Parameters
     ----------
@@ -595,7 +586,7 @@ def convert_sfdb_database(
     is_a_File = os.path.isfile(path_to_sfdb_database)
     is_a_directory = os.path.isdir(path_to_sfdb_database)
     if (not is_a_File) and (not is_a_directory):
-        raise TypeError("Please check the path to the sfdb database.")
+        raise TypeError("Please check the path to the sfdb database.\n")
 
     # Opening the file (files)
     if is_a_File:
@@ -608,16 +599,16 @@ def convert_sfdb_database(
     elif len(file_name_list) > 1:
         print(f"{len(file_name_list)} files were found.")
 
-    print(f"Starting conversion...")
+    print(f"Starting conversion...\n")
 
     timestamp_list_database = [0] * len(file_name_list)
     for j, file_name in enumerate(file_name_list):
         print(f"Processing : {file_name}")
 
-        print("Extracting data from path...")
-        print("Please make sure that the path to the files is:")
+        print("Extracting data from path...\n")
+        print("Please make sure that the path to the files is:\n")
         print("/*/*/[detector]/sfdb/[run]/[calibration]/[cleaning]/*/[sfdb-files]")
-        print("or")
+        print("or\n")
         print("/*/*/[detector]/sfdb/[run]/[calibration]/*/[sfdb-files]")
 
         path_splitted = file_name.strip("\n").split("/")
@@ -638,3 +629,45 @@ def convert_sfdb_database(
     timestamp_list_database = np.concatenate(timestamp_list_database)
     with h5py.File(save_path + "/timeseries.hdf", "w") as timeseries_file:
         timeseries_file.create_dataset("times", data=timestamp_list_database)
+
+
+def open_database(
+    path_to_databse_folder: str,
+    detector: str,
+    run: str = "O3",
+    calibration: str = "C01",
+    # !TODO Support for different cleanings
+    data_type: str = "fft_data",
+    start_time: str = "1400-01-01 00:00:00",
+    end_time: str = "9999-01-01 00:00:00",
+    start_frequency: np.double = -1,
+    end_frequency: np.double = 1e10,
+) -> np.ndarray:
+    """open_database _summary_
+
+    _extended_summary_
+
+    Arguments:
+        path_to_databse_folder -- _description_
+        detector -- _description_
+
+    Keyword Arguments:
+        run -- _description_ (default: {"O3"})
+        calibration -- _description_ (default: {"C01"})
+        data_type -- _description_ (default: {"fft_data"})
+        start_time -- _description_ (default: {"1400-01-01 00:00:00"})
+        end_time -- _description_ (default: {"9999-01-01 00:00:00"})
+        start_frequency -- _description_ (default: {-1})
+        end_frequency -- _description_ (default: {1e10})
+
+    Returns:
+        _description_
+    """
+    path_to_h5 = f"{path_to_databse_folder}/{detector}/hdf5/{run}/{calibration}/"
+    # Checking path
+    try:
+        with open(f"{path_to_h5}/timeseries.hdf") as timestamps_file:
+            timestamps = dask.array.from_array(timestamps_file["times"]).compute()
+    except EnvironmentError:
+        print("Could not find given database\n")
+        print(f"Please check the path\n{path_to_h5}")
