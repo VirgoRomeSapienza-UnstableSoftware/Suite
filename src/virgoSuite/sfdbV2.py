@@ -549,7 +549,7 @@ def sfdb_to_h5(
         f"{spectrum_save_path}/frequencies.hdf5", mode="w"
     ) as spectrum_frequencies_file:
         spectrum_frequencies_file.create_dataset(
-            "frequencies",
+            name="frequencies",
             data=spectrum_frequencies,
         )
 
@@ -638,8 +638,8 @@ def open_database(
     calibration: str = "C01",
     # !TODO Support for different cleanings
     data_type: str = "fft_data",
-    start_time: str = "1400-01-01 00:00:00",
-    end_time: str = "9999-01-01 00:00:00",
+    start_time_str: str = "2000-01-01 00:00:00",
+    stop_time_str: str = "2100-01-01 00:00:00",
     start_frequency: np.double = -1,
     end_frequency: np.double = 1e10,
 ) -> np.ndarray:
@@ -663,11 +663,65 @@ def open_database(
     Returns:
         _description_
     """
-    path_to_h5 = f"{path_to_databse_folder}/{detector}/hdf5/{run}/{calibration}/"
+    path_to_hdf_files = f"{path_to_databse_folder}/{detector}/hdf5/{run}/{calibration}/"
     # Checking path
     try:
-        with open(f"{path_to_h5}/timeseries.hdf") as timestamps_file:
-            timestamps = dask.array.from_array(timestamps_file["times"]).compute()
+        with h5py.File(
+            f"{path_to_hdf_files}/timeseries.hdf", mode="r"
+        ) as timestamps_file:
+            times_array = dask.array.from_array(timestamps_file["times"]).compute()
     except EnvironmentError:
         print("Could not find given database\n")
-        print(f"Please check the path\n{path_to_h5}")
+        print(f"Please check the path\n{path_to_hdf_files}")
+        print("and make sure is path/to/the/database")
+
+    # Time slicing
+    timestamps_str = pandas.Series([time.decode("utf8") for time in times_array])
+    timestamps = pandas.to_datetime(timestamps_str)
+
+    start_time = pandas.to_datetime(start_time_str)
+    stop_time = pandas.to_datetime(stop_time_str)
+    time_mask = np.logical_and(timestamps > start_time, timestamps < stop_time)
+
+    date_list_str = timestamps_str[time_mask]
+
+    # Frequency slicing
+    if data_type == "fft_data":
+        path_to_data = f"{path_to_hdf_files}/data/"
+        hdf_tree = "fft_data"
+        dtype = "complex64"
+    elif (data_type == "autoregressive_spectrum") or (data_type == "periodogram"):
+        path_to_data = f"{path_to_hdf_files}/spectrum/"
+        hdf_tree = f"spectrum/{data_type}"
+        dtype = "float64"
+
+    # List of all files to be opened
+    file_name_list = [
+        path_to_data + date.replace(":", ".") + ".hdf5" for date in date_list_str
+    ]
+
+    frequency_file = h5py.File(path_to_data + "/frequencies.hdf5", "r")
+    frequencies = dask.array.from_array(frequency_file["/frequencies"])
+    frequency_mask = np.logical_and(
+        frequencies > start_frequency, frequencies < end_frequency
+    ).compute()
+
+    # Frequency axis
+    masked_frequencies = frequencies[frequency_mask]
+
+    # Instantiating an array to store data
+    data_list = dask.array.zeros(
+        (len(file_name_list), masked_frequencies.shape[0]),
+        dtype=dtype,
+        chunks=(1, -1),
+    )
+
+    # Loading data
+    for i, file_name in enumerate(file_name_list):
+        file_obj = h5py.File(file_name, mode="r")
+        data = dask.array.from_array(file_obj[hdf_tree])[
+            frequency_mask
+        ]  # mettere qui lo slicing in frequenze
+        data_list[i] = data
+
+    return data_list, masked_frequencies, timestamps
