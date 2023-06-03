@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import TextIO
 
 import dask.array
+import pandas
 
 import h5py
 
@@ -706,12 +707,9 @@ def open_database(
         frequencies > start_frequency, frequencies < end_frequency
     ).compute()
 
-    # Frequency axis
-    masked_frequencies = frequencies[frequency_mask]
-
     # Instantiating an array to store data
     data_list = dask.array.zeros(
-        (len(file_name_list), masked_frequencies.shape[0]),
+        (len(file_name_list), frequencies.shape[0]),
         dtype=dtype,
         chunks=(1, -1),
     )
@@ -719,9 +717,13 @@ def open_database(
     # Loading data
     for i, file_name in enumerate(file_name_list):
         file_obj = h5py.File(file_name, mode="r")
-        data = dask.array.from_array(file_obj[hdf_tree])[
-            frequency_mask
-        ]  # mettere qui lo slicing in frequenze
+        data = dask.array.from_array(file_obj[hdf_tree])
         data_list[i] = data
 
-    return data_list, masked_frequencies, timestamps
+    dataframe = pandas.DataFrame(
+        data=data_list,
+        index=timestamps,
+        columns=frequencies,
+    ).iloc[:, frequency_mask]
+
+    return dataframe
