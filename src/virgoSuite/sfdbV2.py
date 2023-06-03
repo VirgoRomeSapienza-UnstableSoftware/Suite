@@ -706,10 +706,11 @@ def open_database(
     frequency_mask = np.logical_and(
         frequencies > start_frequency, frequencies < end_frequency
     ).compute()
+    masked_frequencies = frequencies[frequency_mask]
 
     # Instantiating an array to store data
     data_list = dask.array.zeros(
-        (len(file_name_list), frequencies.shape[0]),
+        (len(file_name_list), masked_frequencies.shape[0]),
         dtype=dtype,
         chunks=(1, -1),
     )
@@ -717,13 +718,13 @@ def open_database(
     # Loading data
     for i, file_name in enumerate(file_name_list):
         file_obj = h5py.File(file_name, mode="r")
-        data = dask.array.from_array(file_obj[hdf_tree])
+        data = dask.array.from_array(file_obj[hdf_tree])[frequency_mask]
         data_list[i] = data
 
     dataframe = pandas.DataFrame(
         data=data_list,
         index=timestamps,
-        columns=frequencies,
-    ).iloc[:, frequency_mask]
+        columns=masked_frequencies,
+    )
 
     return dataframe
