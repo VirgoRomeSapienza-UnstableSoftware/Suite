@@ -40,5 +40,6 @@ setup(
         "h5py",
         "dask",
         "astropy",
+        "xarray",
     ],
 )
