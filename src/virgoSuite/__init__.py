@@ -1,1 +1,1 @@
-from . import sfdbV2
+from . import sfdbV2, sfdb

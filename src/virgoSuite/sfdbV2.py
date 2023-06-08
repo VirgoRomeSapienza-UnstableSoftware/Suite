@@ -80,9 +80,9 @@ def fread(fid: TextIO, n_elements: int, dtype: str) -> np.ndarray:
         out_variable = data_array
 
     if (dt == "int") or (dt == "int32"):
-        return out_variable.astype("int64")
+        return out_variable.astype("int32")
     elif dt in ["float32", "double", "float", "float64", "single"]:
-        return out_variable.astype("double")
+        return out_variable.astype("float32")
 
 
 # =============================================================================
@@ -371,8 +371,8 @@ def read_block(fid: TextIO) -> tuple[dict, np.ndarray, np.ndarray, np.ndarray]:
     # precision will not be enough
     return (
         header,
-        periodogram,
-        autoregressive_spectrum,
+        periodogram.astype("float32"),
+        autoregressive_spectrum.astype("float32"),
         fft_data.astype("complex64"),
     )
 
