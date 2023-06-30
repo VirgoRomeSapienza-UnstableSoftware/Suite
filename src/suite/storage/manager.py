@@ -405,9 +405,15 @@ def load_data(path: str, format: str) -> xarray.DataArray:
         * Zarr
         * Netcdf4
 
-    Arguments:
-        path -- _description_
-        format -- _description_
+    Arguments
+    ---------
+        path : str
+            Path to the file to be loaded.
+        format : str
+            File format. Supported file formats are:
+                * SFDB09
+                * Zarr
+                * Netcdf4
 
     Raises:
         ValueError: _description_
