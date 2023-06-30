@@ -1,22 +1,7 @@
-# Copyright (C) 2023  Riccardo Felicetti (riccardo.felicetti@infn.it)
-#  under GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
-#
-# The SFDB09 file format (Short FFT DataBase, 2009 specification) is developed by Sergio Frasca and Ornella Piccinni
-#
-# The following Code is a derived and improved version of the software from the
-# master's thesis work of Federico Muciaccia (federicomuciaccia@gmail.com),
-# https://github.com/FedericoMuciaccia/RGBgw/tree/master/code.
-#
-# The function that reads the sfdbs is a porting from the code made by
-# Pia Astone, defined inside the Snag Matlab package (written by Sergio Frasca).
-#
-# Snag is a Matlab data analysis toolbox oriented to gravitational-wave antenna data
-# Snag webpage: http://grwavsf.roma1.infn.it/snag/
-# version 2, released 12 May 2017
-# installation instructions:
-# http://grwavsf.roma1.infn.it/snag/Snag2_UG.pdf
+# TODO: License
 
-import numpy as np
+import numpy
+from numpy.typing import NDArray
 import pandas
 import astropy.time
 
@@ -36,7 +21,7 @@ import h5py
 # =============================================================================
 
 
-def fread(fid: TextIO, n_elements: int, dtype: str) -> np.ndarray:
+def fread(fid: TextIO, n_elements: int, dtype: str) -> None | NDArray:
     """
     MatLab-like file reading
 
@@ -55,22 +40,22 @@ def fread(fid: TextIO, n_elements: int, dtype: str) -> np.ndarray:
 
     Returns
     -------
-    data_array : numpy.ndarray
-        A numpy.ndarray containing the values extracted.
+    data_array : NDArray
+        A NDArray containing the values extracted.
 
     Examples
     --------
     Extracting an integer from example.SFDB09
 
-    >>> fread("example.SFDB09", 2, np.int32)
+    >>> fread("example.SFDB09", 2, numpy.int32)
     [[3], [15]]
 
     """
     if dtype is str:
-        dt = np.uint8  # WARNING: assuming 8-bit ASCII for np.str!
+        dt = numpy.uint8  # WARNING: assuming 8-bit ASCII for numpy.str!
     else:
         dt = dtype
-    data_array = np.fromfile(fid, dt, n_elements)
+    data_array = numpy.fromfile(fid, dt, n_elements)
 
     if len(data_array) < n_elements:
         return None
@@ -89,7 +74,7 @@ def fread(fid: TextIO, n_elements: int, dtype: str) -> np.ndarray:
 # =============================================================================
 
 
-def read_block(fid: TextIO) -> tuple[dict, np.ndarray, np.ndarray, np.ndarray]:
+def read_block(fid: TextIO) -> tuple[dict, NDArray, NDArray, NDArray] | None:
     """
     Read a block of FFTs
 
@@ -106,11 +91,11 @@ def read_block(fid: TextIO) -> tuple[dict, np.ndarray, np.ndarray, np.ndarray]:
     -------
     header : dict
         Header element of SFDB files, see for specifications.
-    periodogram: np.ndarray of float
+    periodogram: NDArray of float
         The periodogram contained in SFDBs.
-    autoregressive_spectrum : np.ndarray of float
+    autoregressive_spectrum : NDArray of float
         The autoregressive spectrum contained in SFDBs.
-    fft_data : np.ndarray of complex
+    fft_data : NDArray of complex
         The complex data used to compute the spectrum.
 
     Notes
@@ -201,7 +186,7 @@ def read_block(fid: TextIO) -> tuple[dict, np.ndarray, np.ndarray, np.ndarray]:
     count = fread(fid, 1, "double")  # count
 
     if count is None:
-        return None, None, None, None
+        return None
 
     det = fread(fid, 1, "int32")  # detector
     if det == 0:
@@ -321,8 +306,8 @@ def read_block(fid: TextIO) -> tuple[dict, np.ndarray, np.ndarray, np.ndarray]:
         "starting_fft_frequency": starting_fft_frequency,
         "subsampling_time": subsampling_time,
         "frequency_resolution": frequency_resolution,
-        "position": np.array([x, y, z]),
-        "velocity": np.array([v_x, v_y, v_z]),
+        "position": numpy.array([x, y, z]),
+        "velocity": numpy.array([v_x, v_y, v_z]),
         "number_of_zeroes": number_of_zeroes,
         "sat_howmany": sat_howmany,
         "spare1": spare1,
@@ -384,7 +369,7 @@ def read_block(fid: TextIO) -> tuple[dict, np.ndarray, np.ndarray, np.ndarray]:
 def sfdb_to_h5(
     path_to_sfdb_database: str,
     save_path: str,
-) -> np.ndarray:
+) -> NDArray:
     """
     SFDB to HDF5
 
@@ -416,7 +401,7 @@ def sfdb_to_h5(
                 break
 
             fft_frequencies = (
-                np.arange(
+                numpy.arange(
                     start=0,
                     stop=len(fft_data),
                     step=1,
@@ -426,7 +411,7 @@ def sfdb_to_h5(
             )
 
             spectrum_frequencies = (
-                np.arange(
+                numpy.arange(
                     start=0,
                     stop=len(periodogram),
                     step=1,
@@ -437,28 +422,28 @@ def sfdb_to_h5(
             )
 
             total_normalization = (
-                np.sqrt(2)
+                numpy.sqrt(2)
                 * head["normalization_factor"]
                 * head["window_normalization"]
-                / np.sqrt(1 - head["percentage_of_zeroes"])
+                / numpy.sqrt(1 - head["percentage_of_zeroes"])
             )
-            power_spectrum = np.square(np.abs(fft_data * total_normalization))
+            power_spectrum = numpy.square(numpy.abs(fft_data * total_normalization))
             power_spectrum = power_spectrum * head["scaling_factor"] ** 2
 
             # float64 slows down computation and cannot be handled by GPU
             # so we are forced to take into account the possibility of overflow
             # and truncation errors (RuntimeWarning: overflow)
             # replace the eventual infinities with the maximum float32 number
-            power_spectrum[np.isinf(power_spectrum)] = np.finfo(
-                np.float32
+            power_spectrum[numpy.isinf(power_spectrum)] = numpy.finfo(
+                numpy.float32
             ).max  # float32_max = 3.4028235e+38
 
             # autoregressive_spectrum and periodogram are stored in sfdbs
             # as square roots, so we need to make the square of them
-            autoregressive_spectrum = np.square(
+            autoregressive_spectrum = numpy.square(
                 autoregressive_spectrum * head["scaling_factor"]
             )
-            periodogram = np.square(periodogram * head["scaling_factor"])
+            periodogram = numpy.square(periodogram * head["scaling_factor"])
 
             # given the fact that out current data are really dirty, we place
             # a condition on the median of the autoregressive spectrum, to be sure
@@ -467,14 +452,14 @@ def sfdb_to_h5(
             # it suffers when there are bumps and unwanted impulses in the time domain
             # the median is more robust than the average
             #
-            # autoregressive_spectrum_median = np.median(autoregressive_spectrum, axis=1)
+            # autoregressive_spectrum_median = numpy.median(autoregressive_spectrum, axis=1)
 
             # autoregressive_spectrum and periodogram must be more or less the
             # same in this flat area they are different in the peaks, because by
             # construction the autoregressive mean ignores them
             # the autoregressive_spectrum can follow the noise nonstationarities
             #
-            # periodogram_median = np.median(periodogram, axis=1)
+            # periodogram_median = numpy.median(periodogram, axis=1)
 
             # HANDLING TIME
             gps_time = astropy.time.Time(
@@ -627,7 +612,7 @@ def convert_sfdb_database(
         timestap_list_block = sfdb_to_h5(file_name, save_path=save_path)
         timestamp_list_database[j] = timestap_list_block
 
-    timestamp_list_database = np.concatenate(timestamp_list_database)
+    timestamp_list_database = numpy.concatenate(timestamp_list_database)
     with h5py.File(save_path + "/timeseries.hdf", "w") as timeseries_file:
         timeseries_file.create_dataset("times", data=timestamp_list_database)
 
@@ -641,9 +626,9 @@ def open_database(
     data_type: str = "fft_data",
     start_time_str: str = "2000-01-01 00:00:00",
     stop_time_str: str = "2100-01-01 00:00:00",
-    start_frequency: np.double = -1,
-    end_frequency: np.double = 1e10,
-) -> np.ndarray:
+    start_frequency: numpy.double = -1,
+    end_frequency: numpy.double = 1e10,
+) -> NDArray:
     """open_database _summary_
 
     _extended_summary_
@@ -682,7 +667,7 @@ def open_database(
 
     start_time = pandas.to_datetime(start_time_str)
     stop_time = pandas.to_datetime(stop_time_str)
-    time_mask = np.logical_and(timestamps > start_time, timestamps < stop_time)
+    time_mask = numpy.logical_and(timestamps > start_time, timestamps < stop_time)
 
     date_list_str = timestamps_str[time_mask]
 
@@ -703,7 +688,7 @@ def open_database(
 
     frequency_file = h5py.File(path_to_data + "/frequencies.hdf5", "r")
     frequencies = dask.array.from_array(frequency_file["/frequencies"])
-    frequency_mask = np.logical_and(
+    frequency_mask = numpy.logical_and(
         frequencies > start_frequency, frequencies < end_frequency
     ).compute()
     masked_frequencies = frequencies[frequency_mask]
