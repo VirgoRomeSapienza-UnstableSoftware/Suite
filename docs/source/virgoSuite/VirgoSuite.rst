@@ -1,11 +1,11 @@
 .. _virgoSuite:
 
-virgoSuite
-**********
+Storage Manager
+**********************
 
 .. toctree::
    :maxdepth: 1
    :caption: Content
 
-.. automodsumm:: suite
+.. automodsumm:: suite.storage.manager
    :toctree: api
