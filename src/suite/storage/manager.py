@@ -416,11 +416,10 @@ def load_data(path: str, format: str) -> xarray.DataArray:
             * Zarr
             * Netcdf4
 
-    Raises:
-        ValueError: _description_
-
     Returns:
-        _description_
+        [xarray.Dataset, xarray.Dataset]
+            Returns two datasets containing the FFT complex spectrum, the periodogram
+            and the autoregressive spectrum.
     """
     # DOCUMENT THIS
     supported_formats = [
