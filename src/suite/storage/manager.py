@@ -400,10 +400,11 @@ def load_data(path: str, format: str) -> xarray.DataArray:
     Generate a delayed object with the desired data to be loaded.
     The function is a part of the manager :doc:`User API</API/user_api>`, it allows
     the user to read to memory from any supported file format.
+
     Supported file formats are:
-        * SFDB09
-        * Zarr
-        * Netcdf4
+    * SFDB09
+    * Zarr
+    * Netcdf4
 
     Arguments
     ---------
@@ -411,9 +412,9 @@ def load_data(path: str, format: str) -> xarray.DataArray:
             Path to the file to be loaded.
         format : str
             File format. Supported file formats are:
-                * SFDB09
-                * Zarr
-                * Netcdf4
+            * SFDB09
+            * Zarr
+            * Netcdf4
 
     Raises:
         ValueError: _description_
