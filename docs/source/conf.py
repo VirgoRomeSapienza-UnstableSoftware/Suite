@@ -32,9 +32,6 @@ extensions = [
     "numpydoc",
 ]
 
-autosummary_generate = ["suite"]
-autodoc_mock_imports = ["numpy", "typing", "os", "fnmatch"]
-
 
 numpydoc_show_class_members = False
 numpydoc_class_members_toctree = False
