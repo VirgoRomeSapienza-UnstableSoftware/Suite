@@ -1,0 +1,7 @@
+Header
+======
+
+.. currentmodule:: suite.storage.manager
+
+.. autoclass:: Header
+   :show-inheritance:

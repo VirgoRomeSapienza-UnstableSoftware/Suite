@@ -1,0 +1,6 @@
+convert_database
+================
+
+.. currentmodule:: suite.storage.manager
+
+.. autofunction:: convert_database

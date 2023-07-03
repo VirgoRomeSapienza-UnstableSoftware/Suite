@@ -1,0 +1,7 @@
+Velocity
+========
+
+.. currentmodule:: suite.storage.manager
+
+.. autoclass:: Velocity
+   :show-inheritance:

@@ -1,0 +1,7 @@
+Position
+========
+
+.. currentmodule:: suite.storage.manager
+
+.. autoclass:: Position
+   :show-inheritance:

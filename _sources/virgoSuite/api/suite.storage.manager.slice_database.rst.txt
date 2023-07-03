@@ -1,0 +1,6 @@
+slice_database
+==============
+
+.. currentmodule:: suite.storage.manager
+
+.. autofunction:: slice_database

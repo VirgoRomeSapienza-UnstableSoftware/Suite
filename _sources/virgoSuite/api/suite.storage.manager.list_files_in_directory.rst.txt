@@ -1,0 +1,6 @@
+list_files_in_directory
+=======================
+
+.. currentmodule:: suite.storage.manager
+
+.. autofunction:: list_files_in_directory

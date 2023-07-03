@@ -1,0 +1,7 @@
+Header_Pia
+==========
+
+.. currentmodule:: suite.storage.manager
+
+.. autoclass:: Header_Pia
+   :show-inheritance:

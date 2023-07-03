@@ -1,0 +1,6 @@
+header_to_human
+===============
+
+.. currentmodule:: suite.storage.manager
+
+.. autofunction:: header_to_human

@@ -1,0 +1,6 @@
+scan_database
+=============
+
+.. currentmodule:: suite.storage.manager
+
+.. autofunction:: scan_database

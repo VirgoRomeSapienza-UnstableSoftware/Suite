@@ -1,0 +1,6 @@
+load_database
+=============
+
+.. currentmodule:: suite.storage.manager
+
+.. autofunction:: load_database

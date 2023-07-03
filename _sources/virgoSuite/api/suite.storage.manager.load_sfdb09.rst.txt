@@ -1,0 +1,6 @@
+load_sfdb09
+===========
+
+.. currentmodule:: suite.storage.manager
+
+.. autofunction:: load_sfdb09
