@@ -45,10 +45,66 @@ import xarray
 import zarr
 
 # STANDARD MODULES
-from typing import TextIO
+from typing import TextIO, NamedTuple
 from os import walk
 from os.path import isdir, isfile, join
 from fnmatch import fnmatch
+from dataclasses import dataclass
+
+
+# =============================================================================
+# *****************************************************************************
+# =============================================================================
+# TODO: SCRIVERE QUESTE
+@dataclass
+class Position:
+    ...
+
+
+@dataclass
+class Velocity:
+    ...
+
+
+@dataclass
+class Header:
+    count: numpy.float64
+    detector: numpy.int32
+    fft_lenght: numpy.float64
+    starting_fft_sample_index: numpy.int32
+    unilatera_number_of_samples: numpy.int32
+    reduction_factor: numpy.int32
+    fft_interlaced: numpy.int32
+    number_of_flags: numpy.float32
+    scaling_factor: numpy.float32
+    fft_index: numpy.int32
+    window_type: numpy.int32
+    normalization_factor: numpy.float32
+    window_normalization: numpy.float32
+    starting_fft_frequency: numpy.float64
+    subsampling_time: numpy.float64
+    frequency_resolution: numpy.float64
+    number_of_zeros: numpy.int32
+    sat_howmany: numpy.float64
+    percentage_of_zeros: numpy.float32
+    lenght_of_averaged_time_spectrum: numpy.int32
+    scientific_segment: numpy.int32
+
+    # TODO: AGGIUNGERE LE PROPERTIES
+    # sampling rates, nyquist, coherence time, half coherence time (time delta between interlaced coherence time)
+    # TODO: ASSERT, CONTROLLARE CHE LE PROPERTIES COINCIDANO CON QUELLO CHE SI INSERISCE
+    # TODO: COMPUTE CHUNKSIZE
+
+
+# NOTE: Using named tuple for "read-only" provileges
+class Header_Pia(NamedTuple):
+    # DOCUMENT THIS
+    ...
+
+
+# =============================================================================
+# *****************************************************************************
+# =============================================================================
 
 
 def list_files_in_directory(path: str, file_type: str) -> list:
@@ -63,7 +119,11 @@ def list_files_in_directory(path: str, file_type: str) -> list:
     return file_names
 
 
-def header_to_human(value: any, attribute_name: str) -> str | bool:
+# =============================================================================
+
+
+def header_to_human(value: any, attribute_name: str) -> str:
+    # TODO: SEPARATE TO 3 FUNCTIONS
     # DOCUMENT THIS
     supported = [
         "detector",
@@ -84,9 +144,9 @@ def header_to_human(value: any, attribute_name: str) -> str | bool:
 
     elif attribute_name == "fft_interlaced":
         if value == 1:
-            return 1
+            return "Half interlaced"
         elif value == 2:
-            return 0
+            return "Not interlaced"
 
     elif attribute_name == "window_type":  # wink
         if value == 0:
@@ -103,8 +163,11 @@ def header_to_human(value: any, attribute_name: str) -> str | bool:
             return "Flat top cosine edge"
 
 
+# =============================================================================
+
+
 def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
-    # TODO DOCUMENT THIS
+    # DOCUMENT THIS
     # Check if given path is a valid file or folder
     file_list = []
     if isinstance(file_name, str) and isdir(file_name):
@@ -123,6 +186,8 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
 
     if verbose > 0:
         print("Opening files...")
+
+    # -------------------------------------------------------------------------
 
     _header_database = []
     _periodogram_database = []
@@ -157,12 +222,12 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         ("velocity_x", "float64"),
         ("velocity_y", "float64"),
         ("velocity_z", "float64"),
-        ("number_of_zeroes", "int32"),
+        ("number_of_zeros", "int32"),
         ("sat_howmany", "float64"),
         ("spare1", "float64"),
         ("spare2", "float64"),
         ("spare3", "float64"),
-        ("percentage_of_zeroes", "float32"),
+        ("percentage_of_zeros", "float32"),
         ("spare5", "float32"),
         ("spare6", "float32"),
         ("lenght_of_averaged_time_spectrum", "int32"),
@@ -175,15 +240,14 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
 
     # Checking if datasets of different shapes were loaded
     # In case loading is aborted, this is not very efficient
-    # TODO: discutere di questa cosa
-    first_header_list = []
+    list_of_first_header = []
     if verbose > 2:
         print(
             f"Opening first header of each file to detect if there are databases with different attributes."
         )
     for sfdb_file_name in file_list:
         first_header = numpy.fromfile(sfdb_file_name, dtype=header_dtype, count=1)
-        first_header_list.append(first_header)
+        list_of_first_header.append(first_header)
 
     is_unique = []
     unique_list_str = numpy.array(
@@ -196,9 +260,9 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
             "scientific_segment",
         ]
     )
-    first_header_list = numpy.array(first_header_list)
+    list_of_first_header = numpy.array(list_of_first_header)
     for item in unique_list_str:
-        is_unique.append(len(numpy.unique(first_header_list[:][item])) == 1)
+        is_unique.append(len(numpy.unique(list_of_first_header[:][item])) == 1)
 
     if numpy.any(numpy.logical_not(is_unique)):
         raise ValueError(
@@ -208,6 +272,8 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
                 \n\nIn particular look for unique {unique_list_str[numpy.logical_not(is_unique)]}"
         )
 
+    # -------------------------------------------------------------------------
+
     # Extracting human-readable common attributes
     detector = header_to_human(first_header["detector"], "detector")
     window_type = header_to_human(first_header["window_type"], "window_type")
@@ -215,6 +281,10 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
 
     # If no problem was found on the files to load, the process starts.
     # Begin cycling over all found files
+
+    # TODO: APRIRE TUTTI GLI HEADER E ALLOCARE LA MEMORIA, FARE INOLTRE TUTTI I
+    # TODO: SANITY CHECK SUL CONTENUTO DEGLI HEADER
+
     for sfdb_file_name in file_list:
         # Opening the first header to check for shape of spectrum, periodogram
         # and AR spectrum
@@ -255,10 +325,10 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
             chunks=1,
         )
 
-        _header_database.append(sfdb["header"].rechunk("auto"))
-        _periodogram_database.append(sfdb["periodogram"].rechunk("auto"))
-        _ar_spectrum_database.append(sfdb["autoregressive_spectrum"].rechunk("auto"))
-        _fft_spectrum_database.append(sfdb["fft_spectrum"].rechunk("auto"))
+        _header_database.append(sfdb["header"])
+        _periodogram_database.append(sfdb["periodogram"])
+        _ar_spectrum_database.append(sfdb["autoregressive_spectrum"])
+        _fft_spectrum_database.append(sfdb["fft_spectrum"])
 
     # No more needed, this is to avoid errors in programming
     del header
@@ -269,15 +339,28 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         dask.array.concatenate(_header_database, axis=0).rechunk("auto").compute()
     )
 
-    periodogram_database = dask.array.concatenate(
-        _periodogram_database, axis=0
-    ).rechunk("auto")
-    ar_spectrum_database = dask.array.concatenate(
-        _ar_spectrum_database, axis=0
-    ).rechunk("auto")
+    periodogram_database = dask.array.concatenate(_periodogram_database, axis=0)
+    ar_spectrum_database = dask.array.concatenate(_ar_spectrum_database, axis=0)
+
+    # -------------------------------------------------------------------------
+    # TODO: LA CLASSE HEADER DEVE FARE QUESTO CONTO
+    sampling_rate = 1 / header_database[0]["subsampling_time"]
+    nyquist = sampling_rate / 2
+    coherence_time = 1 / header_database[0]["frequency_resolution"]
+    samples_per_hertz = ((coherence_time * sampling_rate) / 2) / nyquist
+
+    frequency_chunk_size = 64 * samples_per_hertz
+    # TODO: CI SONO 200/100 FFT PER FILE, OGNUNO DISTA 512 DA QUELLO DOPO
+    # every chunk is 2 ** 8 * coherence_time / 2 seconds
+    time_chunk_size = 64
+    # -------------------------------------------------------------------------
+
     fft_spectrum_database = dask.array.concatenate(
         _fft_spectrum_database, axis=0
-    ).rechunk(chunks=(1, -1))
+    ).rechunk(
+        chunks=(time_chunk_size, frequency_chunk_size),
+        # chunks=(1, -1)
+    )
 
     # Extracting frequency information from sfdb
     spectrum_frequency_index = dask.array.arange(
@@ -297,12 +380,12 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     )
 
     # Extracting times
-    gps_time_int = (
+    _gps_time = (
         header_database["gps_seconds"] + header_database["gps_nanoseconds"] * 1e-9
     )
     gps_time = delayed(
         time.Time(
-            gps_time_int,
+            _gps_time,
             format="gps",
             scale="utc",
         )
@@ -311,8 +394,11 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     datetimes = pandas.to_datetime(iso_time_values.compute())
 
     # Saving to Xarray and Datasets
-    coordinates_names = ["time", "frequency"]
+    # TODO: INVERTIRE ASSI
+    # coordinates_names = ["time", "frequency"]
+    coordinates_names = ["frequecy", "time"]
 
+    # TODO: SI PUO' METTERLI COME DATAARRAY E FARE LO SCLICING SUL DATASET
     coordinate_values = dict(
         time=datetimes,
         x=(("time"), header_database["position_x"]),
@@ -334,6 +420,7 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
 
     # the attributes will be shared between alla datasets, they contain the time
     # independent values of the header
+    # TODO: to_dict() DA DTYPE CUSTOM (usare le named tuples)
     attributes = dict(
         count=header_database["count"][0],
         detector=detector,
@@ -357,25 +444,26 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     )
 
     spectrum = xarray.DataArray(
-        data=fft_spectrum_database,
+        data=fft_spectrum_database.transpose(),
         dims=coordinates_names,
-        coords=spectrum_coordinate_values,
+        coords=[spectrum_frequencies, datetimes],
         attrs=attributes,
     )
     periodogram = xarray.DataArray(
-        data=periodogram_database,
+        data=periodogram_database.transpose(),
         dims=coordinates_names,
-        coords=periodogram_coordinate_values,
+        coords=[periodogram_frequencies, datetimes],
         attrs=attributes,
     )
     ar_spectrum = xarray.DataArray(
-        data=ar_spectrum_database,
+        data=ar_spectrum_database.transpose(),
         dims=coordinates_names,
-        coords=periodogram_coordinate_values,
+        coords=[periodogram_frequencies, datetimes],
         attrs=attributes,
     )
 
     # Building the dataset
+    # TODO: DOVE LI PIJO I BUCHI?
     fft_data = xarray.Dataset(
         data_vars={
             "spectrum": spectrum.where(spectrum != 0).astype("complex64"),
@@ -390,116 +478,20 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         attrs=attributes,
     )
 
-    return [fft_data, regressive_data]
+    return (fft_data, regressive_data)
 
 
-def load_data(path: str, format: str) -> xarray.DataArray:
-    """
-    Load data from database
-
-    Generate a delayed object with the desired data to be loaded.
-    The function is a part of the manager :doc:`User API</API/user_api>`, it allows
-    the user to read to memory from any supported file format.
-    The API must have the same appearence indpendently on the data format to read.
-
-    Supported file formats are:
-
-    * SFDB09
-    * Zarr
-    * Netcdf4
-
-    Parameters
-    ------------
-        path : str
-            Path to the file to be loaded.
-        format : str
-            File format. Supported file formats are:
-                * SFDB09
-                * Zarr
-                * Netcdf4
-
-    Returns
-    ----------
-        [xarray.Dataset, xarray.Dataset]
-            Returns two datasets containing the FFT complex spectrum, the periodogram
-            and the autoregressive spectrum.
-    """
-    # DOCUMENT THIS better
-    supported_formats = [
-        "zarr",
-        "hdf5",
-        "hdf",
-        "nedcdf",
-        "netcdf4",
-        "SFDB09",
-        "sfdb",
-        "sfdb09",
-    ]
-    if format not in supported_formats:
-        raise ValueError(
-            f"\
-                \n{format} is not a valid format \
-                \navailable options are {supported_formats}"
-        )
-
-    # sfdb09 files are not ready to be loaded inside structures, so a custom
-    # function has been created to load all.
-    if format in ["SFDB09", "sfdb", "sfdb09"]:
-        return load_sfdb09(path)
-
-    if format in ["hdf5", "hdf", "nedcdf", "netcdf4"]:
-        return xarray.open_dataset(path)
-
-    if format in ["zarr", "ZARR"]:
-        return xarray.open_zarr(path)
+def scan_database() -> dask.array:
+    ...
 
 
-# !ERROR: FA SCHIFO STA FUNZIONE, VA ASSOLUTAMENTE SCRITTA MEGLIO
-def save_to_file(
-    data: xarray.Dataset,
-    file_path: str,
-    file_name: str = "out",
-    format: str = "zarr",
-    verbose: int = 0,
-    mode: str = "w",
-) -> None:
-    # DOCUMENT THIS
-    supported_formats = [
-        "zarr",
-        "hdf5",
-        # "zip",
-    ]
-    if format not in supported_formats:
-        raise ValueError(
-            f"\
-            \n{format} is not a supported format\
-            \nAvailable options are {supported_formats}\
-            "
-        )
+def load_database():
+    return scan_database.compute()
 
-    if format == "zarr":
-        # compressor = zarr.Blosc(cname="zlib", clevel=1)
-        # encoding = {x: {"compressor": compressor} for x in data}
-        data.to_zarr(
-            file_path + file_name + ".zarr",
-            mode=mode,
-            # encoding=encoding,
-        )
 
-    if format == "hdf5":
-        # Checking if data to be saved is complex
-        if data.to_array().dtype == numpy.complex64:
-            dset = data.expand_dims("ReIm", axis=-1)
-            dset = xarray.concat([dset.real, dset.imag], dim="ReIm")
-        else:
-            dset = data
+def convert_database():
+    ...
 
-        # compression = dict(compression="gzip", complevel=9)
-        # encoding = {var: compression for var in dset.data_vars}
-        dset.to_netcdf(
-            file_path + file_name + ".hdf5",
-            mode=mode,
-            engine="h5netcdf",
-            format="NETCDF4",
-            # encoding= encoding
-        )
+
+def slice_database():
+    ...
