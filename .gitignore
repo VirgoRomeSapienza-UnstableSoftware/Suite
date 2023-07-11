@@ -7,6 +7,7 @@
 # Matlab and sfdb files used for testings
 *.m
 *.SFDB09
+database/
 DATABASE/
 SFDBS/
 

@@ -219,6 +219,9 @@ def list_files_in_directory(path: str, file_type: str):
             if fnmatch(name, "*." + file_type):
                 file_names.append(join(path, name))
 
+    if len(file_names) == 0:
+        raise ImportError(f"Given path does not contain any SFDB09 file")
+
     return file_names
 
 
@@ -367,6 +370,9 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         if verbose > 0:
             print(f"\nLooking for {file_name}")
         file_list = [file_name]
+
+    else:
+        raise ImportError(f"Given path is not a file nor a folder")
 
     if verbose > 0:
         print(f"{len(file_list)} file(s) found")
