@@ -98,7 +98,31 @@ HEADER_ELEMENTS = [
     ("spare_9", "int32"),
     # fft_data, periodogram and ARSpectrum have variable lengths
 ]
-
+TIME_INDEPENDENT_ATTRIBUTES = [
+    "count",
+    "detector",
+    "fft_lenght",
+    "starting_fft_sample_index",
+    "unilateral_number_of_samples",
+    "reduction_factor",
+    "fft_interlaced",
+    "scaling_factor",
+    "window_type",
+    "normalization_factor",
+    "window_normalization",
+    "starting_fft_frequency",
+    "subsampling_time",
+    "frequency_resolution",
+    "sat_howmany",
+    "spare_1",
+    "spare_2",
+    "spare_3",
+    "spare_5",
+    "spare_6",
+    "lenght_of_averaged_time_spectrum",
+    "scientific_segment",
+    "spare_9",
+]
 HEADER_DTYPE = numpy.dtype(HEADER_ELEMENTS)
 
 
@@ -106,12 +130,19 @@ HEADER_DTYPE = numpy.dtype(HEADER_ELEMENTS)
 # *****************************************************************************
 # =============================================================================
 
-
+"""
 @dataclass
 class Vector3D:
     x: NDArray[numpy.float64]
     y: NDArray[numpy.float64]
     z: NDArray[numpy.float64]
+"""
+
+
+class Vector3D(NamedTuple):
+    x: float
+    y: float
+    z: float
 
 
 # TODO: NON FA QUELLO CHE DOVREBBE
@@ -123,14 +154,13 @@ def create_delayed_Vector3D(
 
 
 @dataclass
-class Header:
+class TimeIndependentHeader:
     # voglio dividere gli argomenti unici da quelli time-dependant
     # inserisco anche termini di consistency
     # vedere study_of_header.ipynb per la distinzione tra indipendenti e dipendenti
     # time_independant_args
     count: list[numpy.float64]
     detector: list[numpy.int32]
-    gps_nanoseconds: list[numpy.int32]
     fft_lenght: list[numpy.float64]
     starting_fft_sample_index: list[numpy.int32]
     unilateral_number_of_samples: list[numpy.int32]
@@ -152,7 +182,7 @@ class Header:
     lenght_of_averaged_time_spectrum: list[numpy.int32]
     scientific_segment: list[numpy.int32]
     spare_9: list[numpy.int32]
-    # time_dependant_args
+    """# time_dependant_args
     gps_seconds: list[numpy.int32]
     number_of_flags: list[numpy.float32]
     fft_index: list[numpy.int32]
@@ -164,13 +194,13 @@ class Header:
     velocity_y: list[numpy.float64]
     velocity_z: list[numpy.float64]
     number_of_zeros: list[numpy.int32]
-    percentage_of_zeros: list[numpy.float32]
+    percentage_of_zeros: list[numpy.float32]"""
 
     detector_name: str = field(init=False)
     window_normalization_name: str = field(init=False)
     fft_interlaced_name: str = field(init=False)
     samples_per_hertz: numpy.int32 = field(init=False)
-
+    """
     time_ind_args = [
         "count",
         "detector",
@@ -211,13 +241,14 @@ class Header:
         "number_of_zeroes",
         "percentage_of_zeroes",
     ]
+    """
 
     def __post_init__(self):
         # Checking for consistency
         #
         # Assure that time independant variables are unique
         # Than substituting the lists with nunmbers
-        for arg in self.time_ind_args:
+        for arg in TIME_INDEPENDENT_ATTRIBUTES:
             attribute = getattr(self, arg)
             assert all_equal(attribute), f"{arg} is not unique"
             setattr(self, arg, attribute[0])
@@ -295,7 +326,7 @@ def extract_detector(numerical: numpy.int32):
 
 def extract_window_type(numerical: numpy.int32):
     if numerical == 0:
-        return "None"
+        return "No window"
     elif numerical == 1:
         return "Hanning"
     elif numerical == 2:
@@ -365,13 +396,14 @@ def load_first_headers(file_name_list: list[str], dtype: numpy.dtype):
     return scan_first_headers(file_name_list, dtype).compute()
 
 
+"""
 def build_header_from_arr(header_list: numpy.ndarray):
     # To build the header, i need to construct a dictionary from the arraylike obj
     header_dict = {
         attr_name: header_list[attr_name] for attr_name in header_list.dtype.names
     }
     return Header(**header_dict)
-
+"""
 
 # =============================================================================
 
@@ -404,9 +436,15 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     # Checking if datasets of different shapes were loaded
     # In case process is aborted
     first_headers_arr = load_first_headers(file_list, HEADER_DTYPE)
+    first_headers_database = pandas.DataFrame(first_headers_arr)
+    ti_first_headers_db = first_headers_database[TIME_INDEPENDENT_ATTRIBUTES]
+    print(ti_first_headers_db.iloc[0])
+    ti_first_headers = TimeIndependentHeader(
+        **ti_first_headers_db.set_index("count").to_dict(orient="list")
+    )
 
     # Header construction does consistency check
-    first_headers = build_header_from_arr(first_headers_arr)
+    # first_headers = build_header_from_arr(first_headers_arr)
 
     # -------------------------------------------------------------------------
     # If no problem was found on the files to load, the process starts.
@@ -415,9 +453,9 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     #
     # Since we opened all header files we my preallocate memory for the upcoming
     # reading of sfdbs. We will have
-    lenght_of_averaged_time_spectrum = first_headers.lenght_of_averaged_time_spectrum
-    reduction_factor = first_headers.reduction_factor
-    unilateral_number_of_samples = first_headers.unilateral_number_of_samples
+    lenght_of_averaged_time_spectrum = ti_first_headers.lenght_of_averaged_time_spectrum
+    reduction_factor = ti_first_headers.reduction_factor
+    unilateral_number_of_samples = ti_first_headers.unilateral_number_of_samples
     periodogram_shape = extract_periodogram_shape(
         lenght_of_averaged_time_spectrum, reduction_factor
     )
@@ -461,7 +499,10 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     # We want the header to be immediately computed, so that the resulting dataset
     # has all the useful informations.
     header_arr_database = dask.array.concatenate(_header_database, axis=0).compute()
-    header_database = build_header_from_arr(header_arr_database)
+    header_pia = pandas.DataFrame(header_arr_database)
+    independent_attributes = header_pia[TIME_INDEPENDENT_ATTRIBUTES]
+    time_independent_header = TimeIndependentHeader(**independent_attributes.to_dict())
+    # time_independent_header = build_header_from_arr(header_arr_database)
 
     # Other objects can be lazy
     # ======================= REGRESSIVE STUFF ================================
@@ -473,15 +514,21 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     )
     periodogram_frequencies = (
         periodogram_frequency_index
-        * header_database.frequency_resolution
-        * header_database.reduction_factor
+        * time_independent_header.frequency_resolution
+        * time_independent_header.reduction_factor
     )
-
+    """
     # ============================= SPECTRUM ==================================
-    frequency_chunk_size = 64 * header_database.samples_per_hertz
-    # TODO: QUESTO CONTO VA SPIEGATO
+    frequency_chunk_size = 64 * time_independent_header.samples_per_hertz
+    # TODO: QUESTO CONTO VA SPIEGATO, PROVARE A 10HZ PER 1MESE
     # every chunk is 2 ** 8 * coherence_time / 2 seconds
     time_chunk_size = 64
+    """
+    frequency_chunk_size = 8 * time_independent_header.samples_per_hertz
+    # TODO: NON ABBIAMO ANCORA CAPITO PERCHE' QUESTO NON FUNZIONA COME DOBREBBE
+
+    # every chunk is 2 ** 8 * coherence_time / 2 seconds
+    time_chunk_size = 512
 
     fft_spectrum_database = dask.array.concatenate(
         _fft_spectrum_database, axis=0
@@ -494,11 +541,14 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         0, fft_spectrum_database.shape[1], 1, dtype="int32"
     )
     spectrum_frequencies = (
-        header_database.frequency_resolution * spectrum_frequency_index
+        time_independent_header.frequency_resolution * spectrum_frequency_index
     )
 
     # ================================ TIME ===================================
-    _gps_time = header_database.gps_seconds + header_database.gps_nanoseconds * 1e-9
+    _gps_time = (
+        time_independent_header.gps_seconds
+        + time_independent_header.gps_nanoseconds * 1e-9
+    )
     gps_time = delayed(
         time.Time(
             _gps_time,
@@ -512,21 +562,29 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     # ========================= BUILDING XARRAY ===============================
 
     # TODO: QUESTA COSA è LENTISSIMA
-    position_vector = create_delayed_Vector3D(
-        header_database.position_x,
-        header_database.position_y,
-        header_database.position_z,
+    position = numpy.array(
+        (
+            time_independent_header.position_x,
+            time_independent_header.position_y,
+            time_independent_header.position_z,
+        )
+    )
+    """
+    position_vector = Vector3D(
+        time_independent_header.position_x,
+        time_independent_header.position_y,
+        time_independent_header.position_z,
     )
     position = xarray.DataArray(
-        position_vector.compute(),
+        position_vector,
         dims=["time"],
         coords=[datetimes],
-    )
+    )"""
     # the attributes will be shared between alla datasets, they contain the time
     # independent values of the header
     # TODO: GLI ATTRIBUTI VENGONO GENERATI ANCORA A PARTIRE DAL PRIMO HEADER, DECIDERE QUALI ATTRIBUTI TENERE COME TALI
     # TODO: E QUALI FAR DIVENTARE DELLE VARIABILI, COME PER POSIZIONE E VELOCITA'
-    attributes = header_database.attributes
+    attributes = time_independent_header.attributes
 
     # Saving to Xarray and Datasets
     coordinates_names = ["frequency", "time"]
