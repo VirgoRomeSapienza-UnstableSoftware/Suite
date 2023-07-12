@@ -510,8 +510,6 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     datetimes = pandas.to_datetime(iso_time_values.compute())
 
     # ========================= BUILDING XARRAY ===============================
-    # Saving to Xarray and Datasets
-    coordinates_names = ["frequency", "time"]
 
     # TODO: QUESTA COSA è LENTISSIMA
     position_vector = create_delayed_Vector3D(
@@ -530,22 +528,26 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     # TODO: E QUALI FAR DIVENTARE DELLE VARIABILI, COME PER POSIZIONE E VELOCITA'
     attributes = header_database.attributes
 
+    # Saving to Xarray and Datasets
+    coordinates_names = ["frequency", "time"]
+    spectrum_coords = [spectrum_frequencies, datetimes]
+    regressive_coords = [periodogram_frequencies, datetimes]
     spectrum = xarray.DataArray(
         data=fft_spectrum_database.transpose(),
         dims=coordinates_names,
-        coords=[spectrum_frequencies, datetimes],
+        coords=spectrum_coords,
         attrs=attributes,
     )
     periodogram = xarray.DataArray(
         data=periodogram_database.transpose(),
         dims=coordinates_names,
-        coords=[periodogram_frequencies, datetimes],
+        coords=regressive_coords,
         attrs=attributes,
     )
     ar_spectrum = xarray.DataArray(
         data=ar_spectrum_database.transpose(),
         dims=coordinates_names,
-        coords=[periodogram_frequencies, datetimes],
+        coords=regressive_coords,
         attrs=attributes,
     )
 
