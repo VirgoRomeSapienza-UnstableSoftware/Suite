@@ -26,7 +26,7 @@
 
 # NUMPY
 import numpy
-from numpy.typing import NDArray
+from numpy.typing import NDArray, ArrayLike
 
 # DASK
 import dask.array
@@ -50,6 +50,7 @@ from os.path import isdir, isfile, join, getsize
 from fnmatch import fnmatch
 from dataclasses import dataclass, field, asdict
 from time import time as t
+from itertools import groupby
 
 
 # =============================================================================
@@ -122,70 +123,40 @@ def create_delayed_Vector3D(
 
 
 @dataclass
-class HeaderAttributes:
-    # count: numpy.float64
-    detector: numpy.int32
-    fft_lenght: numpy.float64
-    # starting_fft_sample_index: numpy.int32
-    unilateral_number_of_samples: numpy.int32
-    reduction_factor: numpy.int32
-    fft_interlaced: numpy.int32
-    number_of_flags: numpy.float32
-    scaling_factor: numpy.float32
-    fft_index: numpy.int32
-    window_type: numpy.int32
-    normalization_factor: numpy.float32
-    window_normalization: numpy.float32
-    starting_fft_frequency: numpy.float64
-    subsampling_time: numpy.float64
-    frequency_resolution: numpy.float64
-    number_of_zeros: numpy.float64
-    sat_howmany: numpy.float64
-    percentage_of_zeros: numpy.float32
-    lenght_of_averaged_time_spectrum: numpy.int32
-    scientific_segment: numpy.int32
-
-    detector_name: str = field(init=False)
-    window_normalization_name: str = field(init=False)
-    fft_interlaced_name: str = field(init=False)
-
-    def __post_init__(self):
-        self.detector_name = [extract_detector(detector) for detector in self.detector]
-        self.window_normalization_name = [
-            extract_window_type(wink) for wink in self.window_type
-        ]
-        self.fft_interlaced_name = [
-            extract_interlace_method(interlaced) for interlaced in self.fft_interlaced
-        ]
-
-    # TODO: AGGIUNGERE LE PROPERTIES
-    # sampling rates, nyquist, coherence time, half coherence time (time delta between interlaced coherence time)
-    # TODO: ASSERT, CONTROLLARE CHE LE PROPERTIES COINCIDANO CON QUELLO CHE SI INSERISCE
-    # TODO: COMPUTE CHUNKSIZE
-
-
-class PiaHeader(NamedTuple):
-    # This gives read-only privileges
-    # DOCUMENT THIS
+class Header:
+    # voglio dividere gli argomenti unici da quelli time-dependant
+    # inserisco anche termini di consistency
+    # vedere study_of_header.ipynb per la distinzione tra indipendenti e dipendenti
+    # time_independant_args
     count: list[numpy.float64]
     detector: list[numpy.int32]
-    gps_seconds: list[numpy.int32]
     gps_nanoseconds: list[numpy.int32]
     fft_lenght: list[numpy.float64]
     starting_fft_sample_index: list[numpy.int32]
     unilateral_number_of_samples: list[numpy.int32]
     reduction_factor: list[numpy.int32]
     fft_interlaced: list[numpy.int32]
-    number_of_flags: list[numpy.float32]
     scaling_factor: list[numpy.float32]
-    mjd_time: list[numpy.float64]
-    fft_index: list[numpy.int32]
     window_type: list[numpy.int32]
     normalization_factor: list[numpy.float32]
     window_normalization: list[numpy.float32]
     starting_fft_frequency: list[numpy.float64]
     subsampling_time: list[numpy.float64]
     frequency_resolution: list[numpy.float64]
+    sat_howmany: list[numpy.float64]
+    spare_1: list[numpy.float64]
+    spare_2: list[numpy.float64]
+    spare_3: list[numpy.float64]
+    spare_5: list[numpy.float32]
+    spare_6: list[numpy.float32]
+    lenght_of_averaged_time_spectrum: list[numpy.int32]
+    scientific_segment: list[numpy.int32]
+    spare_9: list[numpy.int32]
+    # time_dependant_args
+    gps_seconds: list[numpy.int32]
+    number_of_flags: list[numpy.float32]
+    fft_index: list[numpy.int32]
+    mjd_time: list[numpy.float64]
     position_x: list[numpy.float64]
     position_y: list[numpy.float64]
     position_z: list[numpy.float64]
@@ -193,16 +164,92 @@ class PiaHeader(NamedTuple):
     velocity_y: list[numpy.float64]
     velocity_z: list[numpy.float64]
     number_of_zeros: list[numpy.int32]
-    sat_howmany: list[numpy.float64]
-    spare_1: list[numpy.float64]
-    spare_2: list[numpy.float64]
-    spare_3: list[numpy.float64]
     percentage_of_zeros: list[numpy.float32]
-    spare_5: list[numpy.float64]
-    spare_6: list[numpy.float64]
-    lenght_of_averaged_time_spectrum: list[numpy.int32]
-    scientific_segment: list[numpy.int32]
-    spare_9: list[numpy.float64]
+
+    detector_name: str = field(init=False)
+    window_normalization_name: str = field(init=False)
+    fft_interlaced_name: str = field(init=False)
+    samples_per_hertz: numpy.int32 = field(init=False)
+
+    time_ind_args = [
+        "count",
+        "detector",
+        "fft_lenght",
+        "starting_fft_sample_index",
+        "unilateral_number_of_samples",
+        "reduction_factor",
+        "fft_interlaced",
+        "scaling_factor",
+        "window_type",
+        "normalization_factor",
+        "window_normalization",
+        "starting_fft_frequency",
+        "subsampling_time",
+        "frequency_resolution",
+        "sat_howmany",
+        "spare_1",
+        "spare_2",
+        "spare_3",
+        "spare_5",
+        "spare_6",
+        "lenght_of_averaged_time_spectrum",
+        "scientific_segment",
+        "spare_9",
+    ]
+    time_dep_args = [
+        "gps_seconds",
+        "number_of_flags",
+        "gps_nanoseconds",
+        "mjd_time",
+        "fft_index",
+        "position_x",
+        "position_y",
+        "position_z",
+        "velocity_x",
+        "velocity_y",
+        "velocity_z",
+        "number_of_zeroes",
+        "percentage_of_zeroes",
+    ]
+
+    def __post_init__(self):
+        # Checking for consistency
+        #
+        # Assure that time independant variables are unique
+        # Than substituting the lists with nunmbers
+        for arg in self.time_ind_args:
+            attribute = getattr(self, arg)
+            assert all_equal(attribute), f"{arg} is not unique"
+            setattr(self, arg, attribute[0])
+
+        # Creating human-readable attributes
+        self.detector_name = extract_detector(self.detector)
+        self.window_normalization_name = extract_window_type(self.window_type)
+        self.fft_interlaced_name = extract_interlace_method(self.fft_interlaced)
+
+        # DOCUMENT THIS: THIS NEEDS A DEEP EXPLANATION
+        sampling_rate = 1 / self.subsampling_time
+        nyquist = sampling_rate / 2
+        coherence_time = 1 / self.frequency_resolution
+        self.samples_per_hertz = int(((coherence_time * sampling_rate) / 2) / nyquist)
+
+        # Consistency check
+        assert coherence_time == self.fft_lenght, f"Coherence time is inconsistent"
+        assert (
+            int(coherence_time * sampling_rate / 2) == self.unilateral_number_of_samples
+        ), f"Number of samples is inconsistent"
+
+    @property
+    def attributes(self):
+        self.time_ind_args.extend(
+            [
+                "detector_name",
+                "window_normalization_name",
+                "fft_interlaced_name",
+                "samples_per_hertz",
+            ]
+        )
+        return {key: getattr(self, key) for key in self.time_ind_args}
 
 
 # =============================================================================
@@ -210,7 +257,12 @@ class PiaHeader(NamedTuple):
 # =============================================================================
 
 
-def list_files_in_directory(path: str, file_type: str):
+def all_equal(iterable):
+    g = groupby(iterable)
+    return next(g, True) and not next(g, False)
+
+
+def list_files_in_directory(path: str, file_type: str = "SFDB09"):
     # DOCUMENT THIS
     file_names = []
     # Check if a directory was given
@@ -270,6 +322,7 @@ def extract_interlace_method(numerical: numpy.int32):
 def extract_periodogram_shape(
     lenght_of_averaged_time_spectrum: numpy.int32, reduction_factor: numpy.int32
 ):
+    # DOCUMENT THIS!
     if lenght_of_averaged_time_spectrum > 0:
         return lenght_of_averaged_time_spectrum
     else:
@@ -281,6 +334,7 @@ def extract_arSpectrum_shape(
     unilateral_number_of_samples: numpy.int32,
     reduction_factor: numpy.int32,
 ):
+    # DOCUMENT THIS!
     if lenght_of_averaged_time_spectrum > 0:
         return lenght_of_averaged_time_spectrum
     else:
@@ -290,71 +344,40 @@ def extract_arSpectrum_shape(
 # =============================================================================
 
 
-def flag_check(flags: list[str], header: PiaHeader):
-    for flag in flags:
-        assert min(getattr(header, flag)) == max(getattr(header, flag))
-
-
-# =============================================================================
-
-
-def load_first_headers(file_list: list[str], HEADER_DTYPE: numpy.dtype):
-    list_of_first_headers = pandas.DataFrame(
-        numpy.zeros((len(file_list), len(HEADER_DTYPE))),
-        columns=HEADER_DTYPE.names,
-    )
-    # opening files files to read the first header
-    for i, sfdb_file_name in enumerate(file_list):
-        first_header_of_file = dask.array.from_array(
-            numpy.fromfile(sfdb_file_name, dtype=HEADER_DTYPE, count=1)
+# Returns delayed obj containing all the first headers of list of files
+def scan_first_headers(file_name_list: list[str], dtype: numpy.dtype):
+    # DOCUMENT THIS!
+    header_list = []
+    for file_name in file_name_list:
+        sfdb_scan = dask.array.from_array(
+            numpy.memmap(file_name, dtype=dtype, mode="r", shape=1)
         )
+        header_list.append(sfdb_scan)
 
-        # Unraveling header
-        list_of_first_headers.iloc[i] = np_header_to_series(first_header_of_file)
+    first_header_database = dask.array.concatenate(header_list, axis=0)
 
-    # Converting the pandas dataframe into a dictionary of arrays
-    dictionary_of_headers = list_of_first_headers.astype(
-        {dtype[0]: dtype[1] for dtype in HEADER_ELEMENTS}
-    ).to_dict(orient="list")
-    # Pia header has the right custom python type
-    return PiaHeader(**dictionary_of_headers)
+    # the list of first headers should be very lightweight, 1 chunck should be enough
+    return first_header_database.rechunk(-1)
 
 
-def np_header_to_series(header: HEADER_DTYPE):
-    return pandas.Series({key: header[key] for key in header.dtype.names})
+def load_first_headers(file_name_list: list[str], dtype: numpy.dtype):
+    # DOCUMENT THIS!
+    return scan_first_headers(file_name_list, dtype).compute()
 
 
-def header_extract_attributes(header: PiaHeader):
-    attribute_list = [
-        "detector",
-        "fft_lenght",
-        "unilateral_number_of_samples",
-        "reduction_factor",
-        "fft_interlaced",
-        "number_of_flags",
-        "scaling_factor",
-        "fft_index",
-        "window_type",
-        "normalization_factor",
-        "window_normalization",
-        "starting_fft_frequency",
-        "subsampling_time",
-        "frequency_resolution",
-        "number_of_zeros",
-        "sat_howmany",
-        "percentage_of_zeros",
-        "lenght_of_averaged_time_spectrum",
-        "scientific_segment",
-    ]
-    return HeaderAttributes(**{key: getattr(header, key) for key in attribute_list})
+def build_header_from_arr(header_list: numpy.ndarray):
+    # To build the header, i need to construct a dictionary from the arraylike obj
+    header_dict = {
+        attr_name: header_list[attr_name] for attr_name in header_list.dtype.names
+    }
+    return Header(**header_dict)
 
 
 # =============================================================================
 
 
-def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
+def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     # DOCUMENT THIS
-
     # -------------------------------------------------------------------------
     # Checking files for consistency
     #
@@ -365,12 +388,10 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
             print(f"\nLooking for .SFDB09 files inside {file_name}")
 
         file_list = list_files_in_directory(file_name, "SFDB09")
-
     elif isinstance(file_name, str) and isfile(file_name):
         if verbose > 0:
             print(f"\nLooking for {file_name}")
         file_list = [file_name]
-
     else:
         raise ImportError(f"Given path is not a file nor a folder")
 
@@ -380,30 +401,12 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     if verbose > 0:
         print("Opening files...")
 
-    # List of flags that have to be the same accross all opened files
-    database_flags = numpy.array(
-        [
-            "detector",
-            "window_type",
-            "lenght_of_averaged_time_spectrum",
-            "fft_interlaced",
-            "unilateral_number_of_samples",
-            "reduction_factor",
-        ],
-        dtype="str",
-    )
-
     # Checking if datasets of different shapes were loaded
     # In case process is aborted
-    first_header_per_file = load_first_headers(file_list, HEADER_DTYPE)
-    try:
-        flag_check(database_flags, first_header_per_file)
-    except:
-        raise ValueError(
-            f"\
-                \nGiven path contains multiple databases with different T_fft.\
-                \nPlease select a path with SFDB of fixed lenght."
-        )
+    first_headers_arr = load_first_headers(file_list, HEADER_DTYPE)
+
+    # Header construction does consistency check
+    first_headers = build_header_from_arr(first_headers_arr)
 
     # -------------------------------------------------------------------------
     # If no problem was found on the files to load, the process starts.
@@ -412,11 +415,9 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     #
     # Since we opened all header files we my preallocate memory for the upcoming
     # reading of sfdbs. We will have
-    lenght_of_averaged_time_spectrum = (
-        first_header_per_file.lenght_of_averaged_time_spectrum[0]
-    )
-    reduction_factor = first_header_per_file.reduction_factor[0]
-    unilateral_number_of_samples = first_header_per_file.unilateral_number_of_samples[0]
+    lenght_of_averaged_time_spectrum = first_headers.lenght_of_averaged_time_spectrum
+    reduction_factor = first_headers.reduction_factor
+    unilateral_number_of_samples = first_headers.unilateral_number_of_samples
     periodogram_shape = extract_periodogram_shape(
         lenght_of_averaged_time_spectrum, reduction_factor
     )
@@ -437,37 +438,12 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         ]
     )
 
-    # TODO: RIEMPIRE è PIù LENTO CHE FARE L'APPEND
-    """
-    # Allocating a list to store timestamp indexes
-
-    client = Client(n_workers=2, threads_per_worker=4)
-
-    size_of_one_fft = sfdb_dtype.itemsize
-    n_ffts_per_file = [0] * (len(file_list) + 1)
-
-    for i, file_name in enumerate(file_list):
-        file_size = getsize(file_name)
-        n_ffts_per_file[i + 1] = n_ffts_per_file[i] + int(file_size / size_of_one_fft)
-    n_timestamps = numpy.sum(n_ffts_per_file, dtype=numpy.int32)
-
-    _periodogram_database = dask.array.zeros(
-        (n_timestamps, periodogram_shape), dtype=numpy.float64
-    )
-    _ar_spectrum_database = dask.array.zeros(
-        (n_timestamps, ar_spectrum_shape), dtype=numpy.float64
-    )
-    _fft_spectrum_database = dask.array.zeros(
-        (n_timestamps, spectrum_shape), dtype=numpy.complex64
-    )
-    _header_database = dask.array.zeros(n_timestamps, dtype=HEADER_DTYPE)
-    """
     _header_database = []
     _periodogram_database = []
     _ar_spectrum_database = []
     _fft_spectrum_database = []
 
-    for i, sfdb_file_name in enumerate(file_list):
+    for sfdb_file_name in file_list:
         if verbose > 1:
             print(f"Opening {sfdb_file_name}")
 
@@ -476,46 +452,41 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
             chunks=1,
         )
 
-        """
-        for j in range(n_ffts_per_file[i + 1]):
-            # _header_database[n_ffts_per_file[i] + j] = headers[j]
-
-            _periodogram_database[n_ffts_per_file[i] + j] = sfdb["periodogram"][j, :]
-            _ar_spectrum_database[n_ffts_per_file[i] + j] = sfdb["ar_spectrum"][j, :]
-            _fft_spectrum_database[n_ffts_per_file[i] + j] = sfdb["fft_spectrum"][j, :]
-
-        """
         _header_database.append(sfdb["header"])
         _periodogram_database.append(sfdb["periodogram"])
         _ar_spectrum_database.append(sfdb["ar_spectrum"])
         _fft_spectrum_database.append(sfdb["fft_spectrum"])
 
+    # ============================ HEADER =====================================
     # We want the header to be immediately computed, so that the resulting dataset
     # has all the useful informations.
-    header_database = (
-        dask.array.concatenate(_header_database, axis=0).rechunk("auto").compute()
-    )
+    header_arr_database = dask.array.concatenate(_header_database, axis=0).compute()
+    header_database = build_header_from_arr(header_arr_database)
+
+    # Other objects can be lazy
+    # ======================= REGRESSIVE STUFF ================================
     periodogram_database = dask.array.concatenate(_periodogram_database, axis=0)
     ar_spectrum_database = dask.array.concatenate(_ar_spectrum_database, axis=0)
 
-    # -------------------------------------------------------------------------
-    # TODO: LA CLASSE HEADER DEVE FARE QUESTO CONTO
-    sampling_rate = 1 / header_database[0]["subsampling_time"]
-    nyquist = sampling_rate / 2
-    coherence_time = 1 / header_database[0]["frequency_resolution"]
-    samples_per_hertz = ((coherence_time * sampling_rate) / 2) / nyquist
+    periodogram_frequency_index = dask.array.arange(
+        0, periodogram_database.shape[1], 1, dtype="int32"
+    )
+    periodogram_frequencies = (
+        periodogram_frequency_index
+        * header_database.frequency_resolution
+        * header_database.reduction_factor
+    )
 
-    frequency_chunk_size = 64 * samples_per_hertz
+    # ============================= SPECTRUM ==================================
+    frequency_chunk_size = 64 * header_database.samples_per_hertz
     # TODO: QUESTO CONTO VA SPIEGATO
     # every chunk is 2 ** 8 * coherence_time / 2 seconds
     time_chunk_size = 64
-    # -------------------------------------------------------------------------
 
     fft_spectrum_database = dask.array.concatenate(
         _fft_spectrum_database, axis=0
     ).rechunk(
         chunks=(time_chunk_size, frequency_chunk_size),
-        # chunks=(1, -1)
     )
 
     # Extracting frequency information from sfdb
@@ -523,22 +494,11 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         0, fft_spectrum_database.shape[1], 1, dtype="int32"
     )
     spectrum_frequencies = (
-        header_database["frequency_resolution"][0] * spectrum_frequency_index
+        header_database.frequency_resolution * spectrum_frequency_index
     )
 
-    periodogram_frequency_index = dask.array.arange(
-        0, periodogram_database.shape[1], 1, dtype="int32"
-    )
-    periodogram_frequencies = (
-        periodogram_frequency_index
-        * header_database["frequency_resolution"][0]
-        * header_database["reduction_factor"][0]
-    )
-
-    # Extracting times
-    _gps_time = (
-        header_database["gps_seconds"] + header_database["gps_nanoseconds"] * 1e-9
-    )
+    # ================================ TIME ===================================
+    _gps_time = header_database.gps_seconds + header_database.gps_nanoseconds * 1e-9
     gps_time = delayed(
         time.Time(
             _gps_time,
@@ -549,32 +509,26 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     iso_time_values = gps_time.iso
     datetimes = pandas.to_datetime(iso_time_values.compute())
 
+    # ========================= BUILDING XARRAY ===============================
     # Saving to Xarray and Datasets
     coordinates_names = ["frequency", "time"]
 
     # TODO: QUESTA COSA è LENTISSIMA
     position_vector = create_delayed_Vector3D(
-        header_database["position_x"],
-        header_database["position_y"],
-        header_database["position_z"],
+        header_database.position_x,
+        header_database.position_y,
+        header_database.position_z,
     )
     position = xarray.DataArray(
         position_vector.compute(),
         dims=["time"],
         coords=[datetimes],
     )
-    coordinate_values = dict(
-        time=datetimes,
-        v_x=(("time"), header_database["velocity_x"]),
-        v_y=(("time"), header_database["velocity_y"]),
-        v_z=(("time"), header_database["velocity_z"]),
-    )
-
     # the attributes will be shared between alla datasets, they contain the time
     # independent values of the header
     # TODO: GLI ATTRIBUTI VENGONO GENERATI ANCORA A PARTIRE DAL PRIMO HEADER, DECIDERE QUALI ATTRIBUTI TENERE COME TALI
     # TODO: E QUALI FAR DIVENTARE DELLE VARIABILI, COME PER POSIZIONE E VELOCITA'
-    attributes = asdict(header_extract_attributes(first_header_per_file))
+    attributes = header_database.attributes
 
     spectrum = xarray.DataArray(
         data=fft_spectrum_database.transpose(),
@@ -613,6 +567,11 @@ def load_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     )
 
     return (fft_data, regressive_data)
+
+
+def load_sfdb09(file_name: str, verbose: int = 0):
+    fft_data, regressive_data = scan_sfdb09(file_name=file_name, verbose=verbose)
+    return (fft_data.compute(), regressive_data.compute())
 
 
 def scan_database() -> dask.array:
