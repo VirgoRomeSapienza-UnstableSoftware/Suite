@@ -38,6 +38,7 @@ from dask.delayed import delayed
 from astropy import time
 
 # PANDAS
+import polars
 import pandas
 
 # XARRAY
@@ -244,15 +245,6 @@ class TimeIndependentHeader:
     """
 
     def __post_init__(self):
-        # Checking for consistency
-        #
-        # Assure that time independant variables are unique
-        # Than substituting the lists with nunmbers
-        for arg in TIME_INDEPENDENT_ATTRIBUTES:
-            attribute = getattr(self, arg)
-            assert all_equal(attribute), f"{arg} is not unique"
-            setattr(self, arg, attribute[0])
-
         # Creating human-readable attributes
         self.detector_name = extract_detector(self.detector)
         self.window_normalization_name = extract_window_type(self.window_type)
@@ -436,11 +428,17 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     # Checking if datasets of different shapes were loaded
     # In case process is aborted
     first_headers_arr = load_first_headers(file_list, HEADER_DTYPE)
-    first_headers_database = pandas.DataFrame(first_headers_arr)
+    first_headers_database = polars.DataFrame(first_headers_arr)
     ti_first_headers_db = first_headers_database[TIME_INDEPENDENT_ATTRIBUTES]
-    print(ti_first_headers_db.iloc[0])
+    # Checking for consistency
+    #
+    # Assure that time independant variables are unique
+    # Than substituting the lists with nunmbers
+    for attribute in TIME_INDEPENDENT_ATTRIBUTES:
+        assert all_equal(ti_first_headers_db[attribute]), f"{attribute} is not unique"
+
     ti_first_headers = TimeIndependentHeader(
-        **ti_first_headers_db.set_index("count").to_dict(orient="list")
+        **ti_first_headers_db[0].to_struct("ind_header_attributes")[0]
     )
 
     # Header construction does consistency check
@@ -499,10 +497,12 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     # We want the header to be immediately computed, so that the resulting dataset
     # has all the useful informations.
     header_arr_database = dask.array.concatenate(_header_database, axis=0).compute()
-    header_pia = pandas.DataFrame(header_arr_database)
+
+    header_pia = polars.DataFrame(header_arr_database)
     independent_attributes = header_pia[TIME_INDEPENDENT_ATTRIBUTES]
-    time_independent_header = TimeIndependentHeader(**independent_attributes.to_dict())
-    # time_independent_header = build_header_from_arr(header_arr_database)
+    time_independent_header = TimeIndependentHeader(
+        **independent_attributes[0].to_struct("header")[0]
+    )
 
     # Other objects can be lazy
     # ======================= REGRESSIVE STUFF ================================
@@ -545,10 +545,7 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     )
 
     # ================================ TIME ===================================
-    _gps_time = (
-        time_independent_header.gps_seconds
-        + time_independent_header.gps_nanoseconds * 1e-9
-    )
+    _gps_time = header_pia["gps_seconds"] + header_pia["gps_nanoseconds"] * 1e-9
     gps_time = delayed(
         time.Time(
             _gps_time,
@@ -563,11 +560,7 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
 
     # TODO: QUESTA COSA è LENTISSIMA
     position = numpy.array(
-        (
-            time_independent_header.position_x,
-            time_independent_header.position_y,
-            time_independent_header.position_z,
-        )
+        (header_pia.select(["position_x", "position_y", "position_z"]))
     )
     """
     position_vector = Vector3D(
@@ -584,7 +577,7 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     # independent values of the header
     # TODO: GLI ATTRIBUTI VENGONO GENERATI ANCORA A PARTIRE DAL PRIMO HEADER, DECIDERE QUALI ATTRIBUTI TENERE COME TALI
     # TODO: E QUALI FAR DIVENTARE DELLE VARIABILI, COME PER POSIZIONE E VELOCITA'
-    attributes = time_independent_header.attributes
+    attributes = asdict(time_independent_header)
 
     # Saving to Xarray and Datasets
     coordinates_names = ["frequency", "time"]
