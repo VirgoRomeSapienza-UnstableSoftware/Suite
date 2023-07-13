@@ -31,7 +31,6 @@ from numpy.typing import NDArray, ArrayLike
 # DASK
 import dask.array
 import dask.dataframe
-from dask.distributed import Client
 from dask.delayed import delayed
 
 # ASTROPY
@@ -39,6 +38,8 @@ from astropy import time
 
 # PANDAS
 import polars
+
+# POLARS
 import pandas
 
 # XARRAY
@@ -47,12 +48,10 @@ import xarray
 # STANDARD MODULES
 from typing import TextIO, NamedTuple
 from os import walk
-from os.path import isdir, isfile, join, getsize
+from os.path import isdir, isfile, join
 from fnmatch import fnmatch
 from dataclasses import dataclass, field, asdict
-from time import time as t
 from itertools import groupby
-
 import mmap
 
 # =============================================================================
@@ -531,6 +530,7 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     # has all the useful informations.
 
     header_pia = polars.DataFrame(header_database.compute())
+    print("hi")
     independent_attributes = header_pia[TIME_INDEPENDENT_ATTRIBUTES]
     time_independent_header = TimeIndependentHeader(
         **independent_attributes[0].to_struct("header")[0]
@@ -614,7 +614,6 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         coords=regressive_coords,
         attrs=attributes,
     )
-
     # Building the dataset
     # TODO: DOVE LI PIJO I BUCHI?
     fft_data = xarray.Dataset(
