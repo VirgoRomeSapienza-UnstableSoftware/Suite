@@ -53,6 +53,7 @@ from dataclasses import dataclass, field, asdict
 from time import time as t
 from itertools import groupby
 
+import mmap
 
 # =============================================================================
 # *****************************************************************************
@@ -99,6 +100,7 @@ HEADER_ELEMENTS = [
     ("spare_9", "int32"),
     # fft_data, periodogram and ARSpectrum have variable lengths
 ]
+HEADER_DTYPE = numpy.dtype(HEADER_ELEMENTS)
 TIME_INDEPENDENT_ATTRIBUTES = [
     "count",
     "detector",
@@ -124,7 +126,6 @@ TIME_INDEPENDENT_ATTRIBUTES = [
     "scientific_segment",
     "spare_9",
 ]
-HEADER_DTYPE = numpy.dtype(HEADER_ELEMENTS)
 
 
 # =============================================================================
@@ -280,6 +281,21 @@ class TimeIndependentHeader:
 # =============================================================================
 
 
+def memmap(filename, dtype, chunks):
+    with open(filename, "rb") as fh:
+        # `mmap` duplicates the file descriptor
+        # `0` means map the full file
+        mm = mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ)
+
+    # coerce to NumPy array of expected type and shape
+    a = numpy.asarray(mm).view(dtype)  # .reshape(shape)
+
+    # Don't call `asarray`
+    # name=False to avoid hashing
+    a_d = dask.array.from_array(a, chunks=chunks, asarray=False, name=False)
+    return a_d
+
+
 def all_equal(iterable):
     g = groupby(iterable)
     return next(g, True) and not next(g, False)
@@ -425,6 +441,8 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
     if verbose > 0:
         print("Opening files...")
 
+    # FILE LIST IS NOT TIME-ORDERED
+
     # Checking if datasets of different shapes were loaded
     # In case process is aborted
     first_headers_arr = load_first_headers(file_list, HEADER_DTYPE)
@@ -441,8 +459,13 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         **ti_first_headers_db[0].to_struct("ind_header_attributes")[0]
     )
 
-    # Header construction does consistency check
-    # first_headers = build_header_from_arr(first_headers_arr)
+    # REODERING FILE LIST
+    time_ord_inds = numpy.argsort(
+        first_headers_database["gps_seconds"]
+        + first_headers_database["gps_nanoseconds"] * 1e9
+    )
+
+    time_ordered_file_list = numpy.array(file_list)[time_ord_inds]
 
     # -------------------------------------------------------------------------
     # If no problem was found on the files to load, the process starts.
@@ -474,31 +497,40 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         ]
     )
 
-    _header_database = []
-    _periodogram_database = []
-    _ar_spectrum_database = []
-    _fft_spectrum_database = []
+    _header_database = {}
+    _periodogram_database = {}
+    _ar_spectrum_database = {}
+    _fft_spectrum_database = {}
 
-    for sfdb_file_name in file_list:
+    for i, sfdb_file_name in enumerate(time_ordered_file_list):
         if verbose > 1:
             print(f"Opening {sfdb_file_name}")
 
-        sfdb = dask.array.from_array(
-            numpy.memmap(sfdb_file_name, sfdb_dtype, mode="readonly"),
-            chunks=1,
-        )
+        sfdb = memmap(sfdb_file_name, sfdb_dtype, 1)
 
-        _header_database.append(sfdb["header"])
-        _periodogram_database.append(sfdb["periodogram"])
-        _ar_spectrum_database.append(sfdb["ar_spectrum"])
-        _fft_spectrum_database.append(sfdb["fft_spectrum"])
+        _header_database[i] = sfdb["header"]
+        _periodogram_database[i] = sfdb["periodogram"]
+        _ar_spectrum_database[i] = sfdb["ar_spectrum"]
+        _fft_spectrum_database[i] = sfdb["fft_spectrum"]
+
+    header_database = dask.array.concatenate(
+        [file for file in _header_database.values()], axis=0
+    )
+    periodogram_database = dask.array.concatenate(
+        [file for file in _periodogram_database.values()], axis=0
+    )
+    ar_spectrum_database = dask.array.concatenate(
+        [file for file in _ar_spectrum_database.values()], axis=0
+    )
+    fft_spectrum_database = dask.array.concatenate(
+        [file for file in _fft_spectrum_database.values()], axis=0
+    )
 
     # ============================ HEADER =====================================
     # We want the header to be immediately computed, so that the resulting dataset
     # has all the useful informations.
-    header_arr_database = dask.array.concatenate(_header_database, axis=0).compute()
 
-    header_pia = polars.DataFrame(header_arr_database)
+    header_pia = polars.DataFrame(header_database.compute())
     independent_attributes = header_pia[TIME_INDEPENDENT_ATTRIBUTES]
     time_independent_header = TimeIndependentHeader(
         **independent_attributes[0].to_struct("header")[0]
@@ -506,8 +538,6 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
 
     # Other objects can be lazy
     # ======================= REGRESSIVE STUFF ================================
-    periodogram_database = dask.array.concatenate(_periodogram_database, axis=0)
-    ar_spectrum_database = dask.array.concatenate(_ar_spectrum_database, axis=0)
 
     periodogram_frequency_index = dask.array.arange(
         0, periodogram_database.shape[1], 1, dtype="int32"
@@ -517,25 +547,8 @@ def scan_sfdb09(file_name: str | TextIO, verbose: int = 0) -> list:
         * time_independent_header.frequency_resolution
         * time_independent_header.reduction_factor
     )
-    """
+
     # ============================= SPECTRUM ==================================
-    frequency_chunk_size = 64 * time_independent_header.samples_per_hertz
-    # TODO: QUESTO CONTO VA SPIEGATO, PROVARE A 10HZ PER 1MESE
-    # every chunk is 2 ** 8 * coherence_time / 2 seconds
-    time_chunk_size = 64
-    """
-    frequency_chunk_size = 8 * time_independent_header.samples_per_hertz
-    # TODO: NON ABBIAMO ANCORA CAPITO PERCHE' QUESTO NON FUNZIONA COME DOBREBBE
-
-    # every chunk is 2 ** 8 * coherence_time / 2 seconds
-    time_chunk_size = 512
-
-    fft_spectrum_database = dask.array.concatenate(
-        _fft_spectrum_database, axis=0
-    ).rechunk(
-        chunks=(time_chunk_size, frequency_chunk_size),
-    )
-
     # Extracting frequency information from sfdb
     spectrum_frequency_index = dask.array.arange(
         0, fft_spectrum_database.shape[1], 1, dtype="int32"
